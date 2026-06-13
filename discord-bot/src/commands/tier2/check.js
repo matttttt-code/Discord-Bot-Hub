@@ -43,14 +43,14 @@ module.exports = {
 
     const { id, username } = member.user;
     db.createUser(id, username);
-    const user     = db.getUser(id);
-    const warnings = db.getWarnings(id, message.guild.id);
-    const sessions = db.getSessionHistory(id, 5);
+    const user      = db.getUser(id);
+    const warnings  = db.getWarnings(id, message.guild.id);
+    const sessions  = db.getSessionHistory(id, 5);
+    const stats     = db.getUserSessionStats(id);
 
     const isConnected     = user.session_start !== null;
     const currentDuration = isConnected ? Math.floor(Date.now() / 1000) - user.session_start : 0;
 
-    // Dates — joinedTimestamp peut être null sur certains comptes très anciens
     const createdAt = Math.floor(member.user.createdTimestamp / 1000);
     const joinedAt  = member.joinedTimestamp ? Math.floor(member.joinedTimestamp / 1000) : null;
 
@@ -63,24 +63,27 @@ module.exports = {
 
     // ── Identité ──────────────────────────────────────────────
     embed.addFields(
-      { name: '🆔 Identifiant',        value: `\`${id}\``,                                inline: true },
-      { name: '📅 Compte créé le',     value: formatTimestamp(createdAt),                 inline: true },
-      { name: '🏠 Rejoint le serveur', value: joinedAt ? formatTimestamp(joinedAt) : '*Inconnu*', inline: true },
+      { name: '🆔 Identifiant',        value: `\`${id}\``,                                        inline: true },
+      { name: '📅 Compte créé le',     value: formatTimestamp(createdAt),                           inline: true },
+      { name: '🏠 Rejoint le serveur', value: joinedAt ? formatTimestamp(joinedAt) : '*Inconnu*',   inline: true },
     );
 
     // ── Connexions ────────────────────────────────────────────
     embed.addFields(
-      { name: '🏆 Total connexions', value: `**${user.total_connexions}**`,              inline: true },
-      { name: '📡 Statut',           value: isConnected ? '🟢 **Connecté**' : '🔴 **Déconnecté**', inline: true },
-      { name: '⚠️ Avertissements',   value: `**${warnings.length}**`,                   inline: true },
+      { name: '🏆 Total connexions',  value: `**${user.total_connexions}**`,                        inline: true },
+      { name: '📡 Statut',            value: isConnected ? '🟢 **Connecté**' : '🔴 **Déconnecté**', inline: true },
+      { name: '⚠️ Avertissements',    value: `**${warnings.length}**`,                              inline: true },
+      { name: '➕ Co. ajoutées',       value: `**${user.added_connexions || 0}**`,                   inline: true },
+      { name: '➖ Co. retirées',       value: `**${user.removed_connexions || 0}**`,                 inline: true },
+      { name: '⏳ Temps moyen / co.',  value: `**${dur(stats.avgSeconds)}**`,                        inline: true },
     );
 
     // ── Session en cours (si connecté) ────────────────────────
     if (isConnected) {
       embed.addFields(
-        { name: '⏱️ Session en cours',  value: `**${formatDuration(currentDuration)}**`, inline: true },
-        { name: '🕐 Connecté depuis',   value: formatRelative(user.session_start),        inline: true },
-        { name: '\u200B',               value: '\u200B',                                  inline: true },
+        { name: '⏱️ Session en cours', value: `**${formatDuration(currentDuration)}**`, inline: true },
+        { name: '🕐 Connecté depuis',  value: formatRelative(user.session_start),        inline: true },
+        { name: '\u200B',              value: '\u200B',                                  inline: true },
       );
     }
 
@@ -93,26 +96,6 @@ module.exports = {
       });
       embed.addFields({ name: `📋 Dernières sessions (${sessions.length})`, value: sessionLines.join('\n'), inline: false });
     }
-
-    // ── Rôles ─────────────────────────────────────────────────
-    const roleList = member.roles.cache
-      .filter(r => r.id !== message.guild.id)
-      .sort((a, b) => b.position - a.position)
-      .map(r => `<@&${r.id}>`);
-
-    let rolesValue;
-    if (roleList.length === 0) {
-      rolesValue = '*Aucun rôle*';
-    } else {
-      // Construire la liste en respectant la limite de 1024 chars
-      rolesValue = '';
-      for (const r of roleList) {
-        const next = rolesValue ? `${rolesValue}, ${r}` : r;
-        if (next.length > 1000) { rolesValue += ` *(+${roleList.length - roleList.indexOf(r)} autres)*`; break; }
-        rolesValue = next;
-      }
-    }
-    embed.addFields({ name: `🎭 Rôles (${roleList.length})`, value: rolesValue, inline: false });
 
     return message.reply({ embeds: [embed] });
   }

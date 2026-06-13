@@ -666,4 +666,9 @@ module.exports = {
       return lastSession && lastSession.end_time < threshold;
     });
   },
+
+  getVoiceActiveLong(maxSeconds) {
+    const threshold = now() - maxSeconds;
+    return db.get('voice_active').filter(v => v.join_time <= threshold).value();
+  },
 };

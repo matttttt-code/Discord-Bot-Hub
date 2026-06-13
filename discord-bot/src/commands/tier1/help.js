@@ -58,7 +58,6 @@ module.exports = {
         name: `🛡️ Tier 2 — @${t2Name}`,
         value: [
           `\`${prefix}check [@user]\` — Profil complet d'un membre`,
-          `\`${prefix}lastco [@user]\` — Dernière connexion d'un membre`,
           `\`${prefix}view\` — Classement des connexions`,
           `\`${prefix}activite [@user] [7j/30j/JJ/MM]\` — Activité complète d'un membre (co + msgs + vocal)`,
           `\`${prefix}msgs [@user] [7j/30j/JJ/MM] [#salon]\` — Messages d'un membre sur une période`,
@@ -88,7 +87,6 @@ module.exports = {
           `\`${prefix}logsco @membre\` — Historique détaillé des connexions d'un membre`,
           `\`${prefix}avert @user [raison]\` — Avertir un membre (MP automatique)`,
           `\`${prefix}avert @user list\` — Voir les avertissements d'un membre`,
-          `\`${prefix}clearwarnings @user\` — Effacer tous les avertissements d'un membre`,
           `\`${prefix}revive @user [message]\` — Envoyer un MP de relance à un membre`,
           `\`${prefix}support [texte]\` — Signalement à l'équipe dev`,
           `\`${prefix}setup [param] [valeur]\` — Configurer le bot`,

@@ -15,6 +15,10 @@ module.exports = {
       return message.reply({ embeds: [error('Système désactivé', 'Le système de connexion est actuellement désactivé.')] });
     }
 
+    if (db.isGele(id)) {
+      return message.reply({ embeds: [error('Compte gelé', 'Ton compteur de connexions est actuellement **gelé**. Contacte un gérant.')] });
+    }
+
     if (db.isConnected(id)) {
       return message.reply({ embeds: [error('Déjà connecté', 'Tu es déjà connecté. Utilise `!d` pour terminer ta connexion.')] });
     }

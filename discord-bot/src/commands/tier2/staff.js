@@ -12,15 +12,14 @@ function getTierInfo(member, guildId) {
   const tier3Id = cfg.getTier3RoleId(guildId);
   const tier2Id = cfg.getTier2RoleId(guildId);
   const mgrId   = cfg.getBotManagerRoleId(guildId);
-  if (member.permissions.has(8n))                       return { label: '🏆 Gérant',      level: 3 };
-  if (tier3Id && member.roles.cache.has(tier3Id))       return { label: '🏆 Gérant',      level: 3 };
-  if (mgrId   && member.roles.cache.has(mgrId))         return { label: '🤖 Bot Manager', level: 3 };
-  if (tier2Id && member.roles.cache.has(tier2Id))       return { label: '👮 Admin',        level: 2 };
+  if (member.permissions.has(8n))                 return { label: '🏆 Manager',    level: 3 };
+  if (tier3Id && member.roles.cache.has(tier3Id)) return { label: '🏆 Manager',    level: 3 };
+  if (mgrId   && member.roles.cache.has(mgrId))  return { label: '🤖 Bot Manager', level: 3 };
+  if (tier2Id && member.roles.cache.has(tier2Id)) return { label: '👮 Admin',       level: 2 };
   return { label: '👤 Membre', level: 1 };
 }
 
 function getHighestRole(member) {
-  if (!member) return '`Inconnu`';
   const role = member.roles.cache
     .filter(r => r.id !== member.guild.id)
     .sort((a, b) => b.position - a.position)
@@ -28,38 +27,40 @@ function getHighestRole(member) {
   return role ? `<@&${role.id}>` : '`Aucun rôle`';
 }
 
-function getStatus(user, activeAbsenceIds, guildId) {
-  if (user.gele)                                         return '🔒';
-  if (activeAbsenceIds.has(user.discord_id))             return '🌙';
-  if (user.session_start !== null)                       return '🟢';
+function getStatus(dbUser, activeAbsenceIds) {
+  if (!dbUser)                           return '⚫';
+  if (dbUser.gele)                       return '🔒';
+  if (activeAbsenceIds.has(dbUser.discord_id)) return '🌙';
+  if (dbUser.session_start !== null)     return '🟢';
   return '⚫';
 }
 
-function buildPage(users, memberMap, activeAbsenceIds, guildId, page, totalPages) {
-  const slice = users.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+function buildPage(members, dbMap, activeAbsenceIds, guildId, page, totalPages) {
+  const slice = members.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
 
-  const lines = slice.map(u => {
-    const member = memberMap.get(u.discord_id);
+  const lines = slice.map(member => {
+    const dbUser = dbMap.get(member.id);
     const tier   = getTierInfo(member, guildId);
     const role   = getHighestRole(member);
-    const status = getStatus(u, activeAbsenceIds, guildId);
-    const name   = member ? (member.displayName || member.user.username) : u.username;
+    const status = getStatus(dbUser, activeAbsenceIds);
+    const co     = dbUser ? dbUser.total_connexions : 0;
+    const name   = member.displayName || member.user.username;
     return [
       `${status} **${name}** — ${tier.label}`,
-      `> Rôle : ${role}  ·  Connexions : \`${u.total_connexions}\``,
+      `> Rôle : ${role}  ·  Connexions : \`${co}\``,
     ].join('\n');
   });
 
   return new EmbedBuilder()
     .setColor(COLORS.primary)
     .setTitle('👥 | Staff — Novaguard Protect')
-    .setDescription(lines.length ? lines.join('\n\n') : '*Aucun membre enregistré.*')
+    .setDescription(lines.length ? lines.join('\n\n') : '*Aucun membre.*')
     .addFields({
       name: '📊 Légende',
-      value: '🟢 Connecté  ·  🌙 Absent  ·  🔒 Gelé  ·  ⚫ Inactif',
+      value: '🟢 Connecté  ·  🌙 Absent  ·  🔒 Gelé  ·  ⚫ Inactif / Non enregistré',
       inline: false,
     })
-    .setFooter({ text: `${BOT()} • Page ${page + 1}/${totalPages}  ·  ${users.length} membres au total` })
+    .setFooter({ text: `${BOT()} • Page ${page + 1}/${totalPages}  ·  ${members.length} membres` })
     .setTimestamp();
 }
 
@@ -89,30 +90,30 @@ async function buildStaffData(guild) {
   const guildId = guild.id;
   await guild.members.fetch().catch(() => {});
 
-  const allUsers = db.getAllUsers();
-  const memberMap = new Map();
-  for (const u of allUsers) {
-    const m = guild.members.cache.get(u.discord_id);
-    if (m) memberMap.set(u.discord_id, m);
-  }
+  // Tous les membres Discord triés par position de rôle le plus haut (hiérarchie Discord)
+  const allMembers = guild.members.cache
+    .filter(m => !m.user.bot)
+    .sort((a, b) => {
+      const topA = a.roles.cache.filter(r => r.id !== guild.id).sort((x,y) => y.position - x.position).first()?.position ?? 0;
+      const topB = b.roles.cache.filter(r => r.id !== guild.id).sort((x,y) => y.position - x.position).first()?.position ?? 0;
+      return topB - topA;
+    })
+    .map(m => m);
 
-  // Trier : tier3 > tier2 > tier1, puis par connexions desc
-  const sorted = allUsers
-    .map(u => ({ ...u, tierLevel: getTierInfo(memberMap.get(u.discord_id), guildId).level }))
-    .sort((a, b) => b.tierLevel - a.tierLevel || b.total_connexions - a.total_connexions);
+  // Map discord_id → entrée DB
+  const dbUsers  = db.getAllUsers();
+  const dbMap    = new Map(dbUsers.map(u => [u.discord_id, u]));
 
-  const nowTs = Math.floor(Date.now() / 1000);
-  const activeAbsenceIds = new Set(
-    db.getActiveAbsences(guildId).map(a => a.discord_id)
-  );
+  // Absences actives
+  const activeAbsenceIds = new Set(db.getActiveAbsences(guildId).map(a => a.discord_id));
 
-  return { sorted, memberMap, activeAbsenceIds };
+  return { members: allMembers, dbMap, activeAbsenceIds };
 }
 
 module.exports = {
   name: 'staff',
   tier: 2,
-  description: 'Liste paginée de tous les membres enregistrés avec leur tier et rôle',
+  description: 'Liste paginée de tous les membres du serveur triée par hiérarchie',
   usage: '!staff',
   async execute(message) {
     if (!hasTier2(message.member)) {
@@ -120,14 +121,10 @@ module.exports = {
     }
 
     const guildId = message.guild.id;
-    const { sorted, memberMap, activeAbsenceIds } = await buildStaffData(message.guild);
+    const { members, dbMap, activeAbsenceIds } = await buildStaffData(message.guild);
 
-    if (sorted.length === 0) {
-      return message.reply({ embeds: [error('Aucun membre', 'Aucun membre n\'est encore enregistré dans le bot.')] });
-    }
-
-    const totalPages = Math.ceil(sorted.length / PER_PAGE);
-    const embed = buildPage(sorted, memberMap, activeAbsenceIds, guildId, 0, totalPages);
+    const totalPages = Math.max(1, Math.ceil(members.length / PER_PAGE));
+    const embed = buildPage(members, dbMap, activeAbsenceIds, guildId, 0, totalPages);
     const row   = buildRow(message.author.id, 0, totalPages);
 
     await message.reply({
@@ -136,7 +133,6 @@ module.exports = {
     });
   },
 
-  // Exposé pour le handler de pagination dans index.js
   buildPage,
   buildRow,
   buildStaffData,

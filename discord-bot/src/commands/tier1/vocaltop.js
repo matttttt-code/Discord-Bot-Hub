@@ -25,19 +25,42 @@ module.exports = {
       }
     }
 
-    const users = db.getVocalLeaderboard(message.guild.id, channelId, 15);
+    // Récupérer les membres actuels pour filtrer et nettoyer les absents
+    let guildMembers;
+    try {
+      guildMembers = await message.guild.members.fetch();
+    } catch {
+      guildMembers = message.guild.members.cache;
+    }
+
+    const allUsers = db.getVocalLeaderboard(message.guild.id, channelId, 50);
+
+    const removed = [];
+    const active  = [];
+    for (const u of allUsers) {
+      if (guildMembers.has(u.discord_id)) {
+        active.push(u);
+      } else {
+        db.deleteUser(u.discord_id);
+        removed.push(u);
+      }
+    }
+
+    const top    = active.slice(0, 15);
     const medals = ['🥇', '🥈', '🥉'];
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.success)
       .setTitle(`🎙️ | Classement vocal — ${channelName}`)
       .setTimestamp()
-      .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Vocal` });
+      .setFooter({
+        text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Vocal${removed.length > 0 ? ` · ${removed.length} compte(s) nettoyé(s)` : ''}`,
+      });
 
-    if (users.length === 0) {
+    if (top.length === 0) {
       embed.setDescription('*Aucune donnée vocale disponible.*');
     } else {
-      const lines = users.map((u, i) => {
+      const lines = top.map((u, i) => {
         const medal = medals[i] || `**${i + 1}.**`;
         return `${medal} <@${u.discord_id}> — **${formatDuration(u.total)}**`;
       });

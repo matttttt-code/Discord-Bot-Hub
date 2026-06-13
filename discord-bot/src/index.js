@@ -106,6 +106,25 @@ client.once('clientReady', async () => {
     } catch {}
   }
 
+  // ── Re-sync des états vocaux Discord → DB ──────────────────
+  // Peuple voice_active pour tous les membres actuellement en vocal
+  // (après un redémarrage, aucun voiceStateUpdate ne se déclenche pour eux)
+  let voiceResynced = 0;
+  const { ChannelType } = require('discord.js');
+  for (const guild of client.guilds.cache.values()) {
+    for (const channel of guild.channels.cache.values()) {
+      if (channel.type !== ChannelType.GuildVoice && channel.type !== ChannelType.GuildStageVoice) continue;
+      for (const [, member] of channel.members) {
+        if (member.user.bot) continue;
+        db.voiceJoin(member.user.id, member.user.username, channel.id, guild.id);
+        voiceResynced++;
+      }
+    }
+  }
+  if (voiceResynced > 0) {
+    console.log(`[Bot] ✅ Re-sync vocal : ${voiceResynced} membre(s) remis en tracking.`);
+  }
+
   // ── Checker d'absences terminées (toutes les 60s) ──────────
   async function checkAbsences() {
     try {

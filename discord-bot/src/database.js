@@ -79,37 +79,39 @@ async function init() {
     await pg.query(`DELETE FROM op_message_log  WHERE sent_at  < $1`, [cutoff]);
     await pg.query(`DELETE FROM op_voice_sessions WHERE leave_time IS NOT NULL AND leave_time < $1`, [cutoff]);
 
-    // ── Clôture des sessions pendantes (bot redémarré en cours de connexion) ──
-    // On retrouve toutes les sessions sans end_time et on les ferme proprement
+    // ── Clôture des sessions connexion pendantes (bot redémarré en cours de !c) ──
     const pendingSessions = await pg.query(
-      `SELECT s.id, s.discord_id, s.start_time
-       FROM op_sessions s
-       WHERE s.end_time IS NULL`
+      `SELECT id, discord_id FROM op_sessions WHERE end_time IS NULL`
     );
 
     let closedCount = 0;
     if (pendingSessions.rows.length > 0) {
       const closeTime = now();
       for (const s of pendingSessions.rows) {
-        // Fermer la session dans PG
+        await pg.query(`UPDATE op_sessions SET end_time=$1 WHERE id=$2`, [closeTime, s.id]);
         await pg.query(
-          `UPDATE op_sessions SET end_time=$1 WHERE id=$2`,
-          [closeTime, s.id]
-        );
-        // Incrémenter total_connexions dans PG et vider session_start
-        await pg.query(
-          `UPDATE op_users
-           SET total_connexions = total_connexions + 1,
-               session_start    = NULL
-           WHERE discord_id = $1`,
+          `UPDATE op_users SET total_connexions = total_connexions + 1, session_start = NULL WHERE discord_id = $1`,
           [s.discord_id]
         );
         closedCount++;
       }
-      // Vider aussi op_voice_active (états vocaux invalides après redémarrage)
-      await pg.query(`DELETE FROM op_voice_active`);
-      console.log(`[DB] ✅ ${closedCount} session(s) pendante(s) clôturée(s) au redémarrage.`);
+      console.log(`[DB] ✅ ${closedCount} session(s) connexion pendante(s) clôturée(s).`);
     }
+
+    // ── Clôture des sessions vocales pendantes (leave_time IS NULL) ──
+    // Évite les durées fantômes (ex: 3000h) dans les stats vocales
+    const pendingVoice = await pg.query(
+      `SELECT id FROM op_voice_sessions WHERE leave_time IS NULL`
+    );
+    if (pendingVoice.rows.length > 0) {
+      const closeTime = now();
+      await pg.query(`UPDATE op_voice_sessions SET leave_time=$1 WHERE leave_time IS NULL`, [closeTime]);
+      console.log(`[DB] ✅ ${pendingVoice.rows.length} session(s) vocale(s) pendante(s) clôturée(s).`);
+    }
+
+    // ── Vider op_voice_active (états vocaux invalides après redémarrage) ──
+    // Le re-sync Discord se fait dans clientReady (index.js)
+    await pg.query(`DELETE FROM op_voice_active`);
 
     const [users, sessions, vActive, vStats, vSess, msgStats, msgLog, absences, warnings] = await Promise.all([
       pg.query('SELECT * FROM op_users'),

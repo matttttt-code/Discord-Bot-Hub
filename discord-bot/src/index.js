@@ -1,4 +1,3 @@
-54608012ee9e7c7a720412fda7306210645dd405
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, ActivityType, EmbedBuilder,
         ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');

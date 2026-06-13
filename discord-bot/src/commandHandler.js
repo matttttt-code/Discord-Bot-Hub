@@ -19,7 +19,7 @@ function loadCommands() {
   console.log(`[CommandHandler] ${commands.size} commandes chargées.`);
 }
 
-const TIER_LABELS = { 1: 'Tier 1 · Membre', 2: 'Tier 2 · Admin', 3: 'Tier 3 · Gérant' };
+const TIER_LABELS = { 1: 'Tier 1 · Membre', 2: 'Tier 2 · Admin', 3: 'Tier 3 · Manager' };
 const TIER_COLORS = { 1: 0xADB5BD, 2: 0x5865F2, 3: 0xFFD700 };
 
 async function logCommand(message, commandName, command) {
@@ -53,7 +53,7 @@ async function handleCommand(message) {
     return message.reply({ embeds: [error('🔧 Maintenance', 'Le bot est en **mode maintenance**. Réessaye plus tard.')] });
   }
 
-  // ── Bypass salon : les gérants (tier3) peuvent utiliser n'importe quelle commande partout ──
+  // ── Bypass salon : les managers (tier3) peuvent utiliser n'importe quelle commande partout ──
   const isManager = hasTier3(message.member);
 
   if (!isManager) {
@@ -61,7 +61,7 @@ async function handleCommand(message) {
     const managerChannelId  = cfg.getManagerChannelId(guildId);
     const connexionChannelId = cfg.getConnexionChannelId(guildId);
 
-    // Tier 2 autorisé dans le salon admin ET dans le salon gérant (tier 3)
+    // Tier 2 autorisé dans le salon admin ET dans le salon manager (tier 3)
     if (command.tier === 2 && adminChannelId
         && message.channel.id !== adminChannelId
         && message.channel.id !== managerChannelId) {
@@ -71,7 +71,7 @@ async function handleCommand(message) {
       return message.reply({ embeds: [error('Mauvais salon', `Cette commande doit être utilisée dans ${mention}.`)] });
     }
 
-    // Tier 3 uniquement dans le salon gérant
+    // Tier 3 uniquement dans le salon manager
     const TIER3_ANY_CHANNEL = ['add', 'remove', 'co', 'deco'];
     if (command.tier === 3 && managerChannelId
         && message.channel.id !== managerChannelId

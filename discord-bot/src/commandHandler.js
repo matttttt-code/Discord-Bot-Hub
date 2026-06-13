@@ -65,7 +65,11 @@ async function handleCommand(message) {
     const mention = allowed.map(id => `<#${id}>`).join(' ou ');
     return message.reply({ embeds: [error('Mauvais salon', `Cette commande doit être utilisée dans ${mention}.`)] });
   }
-  if (command.tier === 3 && managerChannelId && message.channel.id !== managerChannelId) {
+  // Ces commandes Tier 3 sont autorisées dans n'importe quel salon
+  const TIER3_ANY_CHANNEL = ['add', 'remove', 'co', 'deco'];
+  if (command.tier === 3 && managerChannelId
+      && message.channel.id !== managerChannelId
+      && !TIER3_ANY_CHANNEL.includes(commandName)) {
     const { error } = require('./utils/embeds');
     return message.reply({ embeds: [error('Mauvais salon', `Cette commande doit être utilisée dans <#${managerChannelId}>.`)] });
   }

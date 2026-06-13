@@ -79,23 +79,14 @@ async function init() {
     await pg.query(`DELETE FROM op_message_log  WHERE sent_at  < $1`, [cutoff]);
     await pg.query(`DELETE FROM op_voice_sessions WHERE leave_time IS NOT NULL AND leave_time < $1`, [cutoff]);
 
-    // ── Clôture des sessions connexion pendantes (bot redémarré en cours de !c) ──
+    // ── Restauration des sessions connexion ouvertes (bot redémarré en cours de !c) ──
+    // Les sessions avec end_time IS NULL restent ouvertes : les membres sont toujours "en connexion"
+    // session_start dans op_users est déjà défini → il sera restauré lors du chargement ci-dessous
     const pendingSessions = await pg.query(
       `SELECT id, discord_id FROM op_sessions WHERE end_time IS NULL`
     );
-
-    let closedCount = 0;
     if (pendingSessions.rows.length > 0) {
-      const closeTime = now();
-      for (const s of pendingSessions.rows) {
-        await pg.query(`UPDATE op_sessions SET end_time=$1 WHERE id=$2`, [closeTime, s.id]);
-        await pg.query(
-          `UPDATE op_users SET total_connexions = total_connexions + 1, session_start = NULL WHERE discord_id = $1`,
-          [s.discord_id]
-        );
-        closedCount++;
-      }
-      console.log(`[DB] ✅ ${closedCount} session(s) connexion pendante(s) clôturée(s).`);
+      console.log(`[DB] ✅ ${pendingSessions.rows.length} session(s) connexion restaurée(s) (membres toujours en !c).`);
     }
 
     // ── Clôture des sessions vocales pendantes (leave_time IS NULL) ──

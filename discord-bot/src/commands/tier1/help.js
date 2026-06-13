@@ -13,7 +13,6 @@ module.exports = {
     const t2      = hasTier2(message.member);
     const t3      = hasTier3(message.member);
 
-    // Noms de rôles tirés de la config setup
     function roleName(roleId, fallback) {
       if (!roleId) return fallback;
       const role = message.guild.roles.cache.get(roleId);
@@ -60,22 +59,14 @@ module.exports = {
         value: [
           `\`${prefix}check [@user]\` — Profil complet d'un membre`,
           `\`${prefix}view\` — Classement des connexions`,
-          `\`${prefix}activite [@user] [7j/30j]\` — Activité complète d'un membre`,
-          `\`${prefix}msgs [@user] [7j/30j] [#salon]\` — Messages d'un membre`,
-          `\`${prefix}rapport [ID_serveur | #salon] [7j/30j/Xh]\` — Classement complet (co + messages + vocal)`,
+          `\`${prefix}activite [@user] [7j/30j/JJ/MM]\` — Activité complète d'un membre (co + msgs + vocal)`,
+          `\`${prefix}msgs [@user] [7j/30j/JJ/MM] [#salon]\` — Messages d'un membre sur une période`,
+          `\`${prefix}rapport [#salon | ID_serveur] [7j/30j/Xh]\` — Classement complet (co + messages + vocal)`,
           `\`${prefix}stats\` — Statistiques globales du serveur`,
-          `\`${prefix}announce [message]\` — Annonce dans le salon connexion`,
-          `\`${prefix}activeco\` — Activer / désactiver les commandes !c et !d`,
-          `\`${prefix}inactifs [7j/30j]\` — Liste des membres sans activité sur la période`,
-          `\`${prefix}logsco @membre\` — Historique détaillé des connexions d'un membre`,
           `\`${prefix}config\` — Voir la configuration complète du bot`,
-          `\`${prefix}avert @user [raison]\` — Avertir un membre`,
-          `\`${prefix}avert @user list\` — Voir les avertissements d'un membre`,
-          `\`${prefix}revive @user [message]\` — Envoyer un MP de relance`,
         ].join('\n'),
         inline: false
       });
-
     }
 
     // ── Tier 3 ──────────────────────────────────────────────────
@@ -90,6 +81,13 @@ module.exports = {
           `\`${prefix}rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM] [@user]\` — Recalculer une période`,
           `\`${prefix}delete [@user]\` — Supprimer un membre de la base`,
           `\`${prefix}reset\` — Réinitialiser toutes les données`,
+          `\`${prefix}announce [message]\` — Annonce dans le salon connexion`,
+          `\`${prefix}activeco\` — Activer / désactiver les commandes \`!c\` et \`!d\``,
+          `\`${prefix}inactifs [7j/30j]\` — Liste des membres sans activité sur la période`,
+          `\`${prefix}logsco @membre\` — Historique détaillé des connexions d'un membre`,
+          `\`${prefix}avert @user [raison]\` — Avertir un membre (MP automatique)`,
+          `\`${prefix}avert @user list\` — Voir les avertissements d'un membre`,
+          `\`${prefix}revive @user [message]\` — Envoyer un MP de relance à un membre`,
           `\`${prefix}support [texte]\` — Signalement à l'équipe dev`,
           `\`${prefix}setup [param] [valeur]\` — Configurer le bot`,
         ].join('\n'),

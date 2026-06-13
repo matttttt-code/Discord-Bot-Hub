@@ -79,6 +79,38 @@ async function init() {
     await pg.query(`DELETE FROM op_message_log  WHERE sent_at  < $1`, [cutoff]);
     await pg.query(`DELETE FROM op_voice_sessions WHERE leave_time IS NOT NULL AND leave_time < $1`, [cutoff]);
 
+    // ── Clôture des sessions pendantes (bot redémarré en cours de connexion) ──
+    // On retrouve toutes les sessions sans end_time et on les ferme proprement
+    const pendingSessions = await pg.query(
+      `SELECT s.id, s.discord_id, s.start_time
+       FROM op_sessions s
+       WHERE s.end_time IS NULL`
+    );
+
+    let closedCount = 0;
+    if (pendingSessions.rows.length > 0) {
+      const closeTime = now();
+      for (const s of pendingSessions.rows) {
+        // Fermer la session dans PG
+        await pg.query(
+          `UPDATE op_sessions SET end_time=$1 WHERE id=$2`,
+          [closeTime, s.id]
+        );
+        // Incrémenter total_connexions dans PG et vider session_start
+        await pg.query(
+          `UPDATE op_users
+           SET total_connexions = total_connexions + 1,
+               session_start    = NULL
+           WHERE discord_id = $1`,
+          [s.discord_id]
+        );
+        closedCount++;
+      }
+      // Vider aussi op_voice_active (états vocaux invalides après redémarrage)
+      await pg.query(`DELETE FROM op_voice_active`);
+      console.log(`[DB] ✅ ${closedCount} session(s) pendante(s) clôturée(s) au redémarrage.`);
+    }
+
     const [users, sessions, vActive, vStats, vSess, msgStats, msgLog, absences, warnings] = await Promise.all([
       pg.query('SELECT * FROM op_users'),
       pg.query('SELECT * FROM op_sessions ORDER BY start_time DESC LIMIT 5000'),
@@ -106,7 +138,7 @@ async function init() {
 
     const total = users.rows.length + sessions.rows.length + vStats.rows.length +
                   msgStats.rows.length + absences.rows.length;
-    console.log(`[DB] ${total} enregistrements restaurés depuis Railway PostgreSQL.`);
+    console.log(`[DB] ${total} enregistrement(s) restauré(s) depuis PostgreSQL.`);
     return total;
   } catch (err) {
     console.error('[DB] Erreur init PG — démarrage en mode mémoire seule :', err.message);

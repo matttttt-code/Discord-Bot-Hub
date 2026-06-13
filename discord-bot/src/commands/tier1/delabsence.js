@@ -1,5 +1,6 @@
-const db = require('../../database');
+const db  = require('../../database');
 const { success, error } = require('../../utils/embeds');
+const { updateAbsenceBoard } = require('../../utils/absenceBoard');
 
 module.exports = {
   name: 'delabsence',
@@ -11,11 +12,9 @@ module.exports = {
 
     let targetUser = message.author;
     if (args.length > 0 && message.mentions.users.size > 0) {
-      const hasPermission = message.member.permissions.has('MANAGE_ROLES') || message.member.permissions.has('ADMINISTRATOR');
+      const hasPermission = message.member.permissions.has('ManageRoles') || message.member.permissions.has('Administrator');
       if (!hasPermission) {
-        return message.reply({ embeds: [error('Permission refusée',
-          'Tu n\'as pas la permission de supprimer l\'absence d\'un autre membre.'
-        )] });
+        return message.reply({ embeds: [error('Permission refusée', 'Tu n\'as pas la permission de supprimer l\'absence d\'un autre membre.')] });
       }
       targetUser = message.mentions.users.first();
     }
@@ -31,6 +30,7 @@ module.exports = {
     }
 
     db.deleteAbsence(targetUser.id, guildId);
+    await updateAbsenceBoard(message.client, message.guild);
 
     const isSelf = targetUser.id === message.author.id;
     return message.reply({ embeds: [success('Absence supprimée ✅',

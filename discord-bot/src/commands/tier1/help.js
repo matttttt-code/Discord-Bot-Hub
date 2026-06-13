@@ -79,6 +79,8 @@ module.exports = {
           `\`${prefix}add [N] [@user]\` — Ajouter N connexions`,
           `\`${prefix}remove [N] [@user]\` — Retirer N connexions`,
           `\`${prefix}rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM] [@user]\` — Recalculer une période`,
+          `\`${prefix}cancelrewind [id]\` — Annuler un rewind (retire les co ajoutées)`,
+          `\`${prefix}cancelrewind list\` — Voir les rewinds récents et leurs IDs`,
           `\`${prefix}delete [@user]\` — Supprimer un membre de la base`,
           `\`${prefix}reset\` — Réinitialiser toutes les données`,
           `\`${prefix}announce [message]\` — Annonce dans le salon connexion`,

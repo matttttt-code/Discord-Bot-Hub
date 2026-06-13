@@ -7,7 +7,7 @@ db.defaults({
   users: [], sessions: [], suggestions: [],
   support_tickets: [], message_stats: [], message_log: [],
   voice_active: [], voice_stats: [], voice_sessions: [],
-  warnings: [], absences: [],
+  warnings: [], absences: [], rewind_log: [],
 }).write();
 
 let _nextId = {};
@@ -65,6 +65,10 @@ async function createTables() {
       id BIGINT PRIMARY KEY, discord_id TEXT, username TEXT, guild_id TEXT,
       issued_by TEXT, reason TEXT, created_at BIGINT
     )`,
+    `CREATE TABLE IF NOT EXISTS op_rewind_log (
+      id BIGINT PRIMARY KEY, guild_id TEXT, done_by TEXT,
+      start_ts BIGINT, end_ts BIGINT, entries TEXT, created_at BIGINT
+    )`,
   ];
   for (const sql of sqls) await pg.query(sql);
 }
@@ -104,7 +108,7 @@ async function init() {
     // Le re-sync Discord se fait dans clientReady (index.js)
     await pg.query(`DELETE FROM op_voice_active`);
 
-    const [users, sessions, vActive, vStats, vSess, msgStats, msgLog, absences, warnings] = await Promise.all([
+    const [users, sessions, vActive, vStats, vSess, msgStats, msgLog, absences, warnings, rewindLog] = await Promise.all([
       pg.query('SELECT * FROM op_users'),
       pg.query('SELECT * FROM op_sessions ORDER BY start_time DESC LIMIT 5000'),
       pg.query('SELECT * FROM op_voice_active'),
@@ -114,6 +118,7 @@ async function init() {
       pg.query(`SELECT * FROM op_message_log WHERE sent_at >= ${cutoff}`),
       pg.query('SELECT * FROM op_absences'),
       pg.query('SELECT * FROM op_warnings'),
+      pg.query('SELECT * FROM op_rewind_log ORDER BY created_at DESC LIMIT 50'),
     ]);
 
     db.set('users',          users.rows).write();
@@ -125,6 +130,7 @@ async function init() {
     db.set('message_log',    msgLog.rows).write();
     db.set('absences',       absences.rows).write();
     db.set('warnings',       warnings.rows).write();
+    db.set('rewind_log',     rewindLog.rows).write();
 
     // Réinitialiser les compteurs nextId depuis les données chargées
     _nextId = {};
@@ -501,6 +507,44 @@ module.exports = {
   clearWarnings(discordId, guildId) {
     db.get('warnings').remove({ discord_id: discordId, guild_id: guildId }).write();
     pgWrite(`DELETE FROM op_warnings WHERE discord_id=$1 AND guild_id=$2`, [discordId, guildId]);
+  },
+
+  /* ======================== REWIND LOG ======================== */
+
+  saveRewindLog(guildId, doneBy, startTs, endTs, entries) {
+    // entries = [{ uid, username, added }]
+    const id = nextId('rewind_log');
+    const t  = now();
+    const entriesJson = JSON.stringify(entries);
+    db.get('rewind_log').push({ id, guild_id: guildId, done_by: doneBy, start_ts: startTs, end_ts: endTs, entries: entriesJson, created_at: t }).write();
+    pgWrite(
+      `INSERT INTO op_rewind_log (id, guild_id, done_by, start_ts, end_ts, entries, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
+      [id, guildId, doneBy, startTs, endTs, entriesJson, t]
+    );
+    return id;
+  },
+
+  getRewindLogs(guildId) {
+    return db.get('rewind_log').filter({ guild_id: guildId }).sortBy(r => -r.created_at).value()
+      .map(r => ({ ...r, entries: typeof r.entries === 'string' ? JSON.parse(r.entries) : r.entries }));
+  },
+
+  getRewindLog(id) {
+    const r = db.get('rewind_log').find({ id: Number(id) }).value();
+    if (!r) return null;
+    return { ...r, entries: typeof r.entries === 'string' ? JSON.parse(r.entries) : r.entries };
+  },
+
+  cancelRewind(id) {
+    const log = this.getRewindLog(id);
+    if (!log) return null;
+    for (const entry of log.entries) {
+      this.removeConnexions(entry.uid, entry.added);
+    }
+    db.get('rewind_log').remove({ id: Number(id) }).write();
+    pgWrite(`DELETE FROM op_rewind_log WHERE id=$1`, [Number(id)]);
+    return log;
   },
 
   /* ======================== ABSENCES ======================== */

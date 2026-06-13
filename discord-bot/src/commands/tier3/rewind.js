@@ -189,6 +189,15 @@ module.exports = {
       totalCo   += u.sessions.length;
       totalSkip += u.skipped || 0;
     }
+
+    // Sauvegarder le log du rewind pour pouvoir l'annuler
+    const rewindId = db.saveRewindLog(
+      guildId,
+      message.author.id,
+      startTs,
+      endTs,
+      summary.map(s => ({ uid: s.uid, username: s.username, added: s.added }))
+    );
     // Compter aussi les skipped des users sans nouvelles sessions (encore sur le serveur)
     for (const [, u] of Object.entries(userSessions)) {
       if (u.sessions.length === 0 && !u.removed && u.skipped > 0) totalSkip += u.skipped;
@@ -218,6 +227,7 @@ module.exports = {
         { name: `👥 ${summary.length} membre${p(summary.length)} — +${totalCo} co au total`,
           value: lines.slice(0, 1000),                                                             inline: false },
         { name: '👮 Modérateur',      value: `<@${message.author.id}>`,                           inline: true  },
+        { name: '🆔 ID rewind',       value: `\`${rewindId}\` *(pour annuler : \`!cancelrewind ${rewindId}\`)*`, inline: true  },
       )
       .setTimestamp()
       .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Rewind` });

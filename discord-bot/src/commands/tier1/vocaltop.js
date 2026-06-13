@@ -1,0 +1,49 @@
+const db = require('../../database');
+const { EmbedBuilder } = require('discord.js');
+const { COLORS, formatDuration } = require('../../utils/embeds');
+
+module.exports = {
+  name: 'vocaltop',
+  tier: 1,
+  description: 'Classement du temps passé en vocal',
+  usage: '!vocaltop [#salon_vocal]',
+  async execute(message, args) {
+    const channelMention = args[0];
+    let channelId = null;
+    let channelName = 'Tous les salons';
+
+    if (channelMention) {
+      const match = channelMention.match(/^<#(\d+)>$/);
+      if (match) {
+        channelId = match[1];
+        const ch = message.guild.channels.cache.get(channelId);
+        channelName = ch ? `#${ch.name}` : `<#${channelId}>`;
+      } else if (/^\d+$/.test(channelMention)) {
+        channelId = channelMention;
+        const ch = message.guild.channels.cache.get(channelId);
+        channelName = ch ? `#${ch.name}` : `#${channelId}`;
+      }
+    }
+
+    const users = db.getVocalLeaderboard(message.guild.id, channelId, 15);
+    const medals = ['🥇', '🥈', '🥉'];
+
+    const embed = new EmbedBuilder()
+      .setColor(COLORS.success)
+      .setTitle(`🎙️ | Classement vocal — ${channelName}`)
+      .setTimestamp()
+      .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Vocal` });
+
+    if (users.length === 0) {
+      embed.setDescription('*Aucune donnée vocale disponible.*');
+    } else {
+      const lines = users.map((u, i) => {
+        const medal = medals[i] || `**${i + 1}.**`;
+        return `${medal} <@${u.discord_id}> — **${formatDuration(u.total)}**`;
+      });
+      embed.setDescription(lines.join('\n'));
+    }
+
+    return message.reply({ embeds: [embed] });
+  }
+};

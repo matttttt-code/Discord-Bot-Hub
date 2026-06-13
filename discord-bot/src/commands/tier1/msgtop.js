@@ -25,29 +25,49 @@ module.exports = {
       }
     }
 
-    const users = db.getMsgLeaderboard(message.guild.id, channelId, 15);
+    // Filtre les membres qui ont quitté le serveur (comme vocaltop)
+    let guildMembers;
+    try {
+      guildMembers = await message.guild.members.fetch();
+    } catch {
+      guildMembers = message.guild.members.cache;
+    }
+
+    const allUsers = db.getMsgLeaderboard(message.guild.id, channelId, 50);
+    const removed  = [];
+    const users    = [];
+    for (const u of allUsers) {
+      if (guildMembers.has(u.discord_id)) {
+        users.push(u);
+      } else {
+        db.deleteUser(u.discord_id);
+        removed.push(u);
+      }
+    }
+
     const medals = ['🥇', '🥈', '🥉'];
+
+    const top = users.slice(0, 15);
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.info)
       .setTitle(`💬 | Classement des messages — ${channelName}`)
       .setTimestamp()
-      .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Messages` });
+      .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Messages${removed.length > 0 ? ` · ${removed.length} compte(s) nettoyé(s)` : ''}` });
 
-    if (users.length === 0) {
+    if (top.length === 0) {
       embed.setDescription('*Aucune donnée de messages disponible.*');
     } else {
-      const lines = users.map((u, i) => {
+      const lines = top.map((u, i) => {
         const medal = medals[i] || `**${i + 1}.**`;
         const last = u.last_msg ? formatRelative(u.last_msg) : '—';
         return `${medal} <@${u.discord_id}> — **${u.total.toLocaleString()}** msg${u.total > 1 ? 's' : ''} *(dernier : ${last})*`;
       });
       embed.setDescription(lines.join('\n'));
 
-      const myRank = db.getMsgLeaderboard(message.guild.id, channelId, 9999).findIndex(u => u.discord_id === message.author.id);
+      const myRank = users.findIndex(u => u.discord_id === message.author.id);
       if (myRank >= 0) {
-        const myData = db.getMsgLeaderboard(message.guild.id, channelId, 9999)[myRank];
-        embed.addFields({ name: '📍 Ta position', value: `**#${myRank + 1}** — **${myData.total.toLocaleString()}** messages`, inline: false });
+        embed.addFields({ name: '📍 Ta position', value: `**#${myRank + 1}** — **${users[myRank].total.toLocaleString()}** messages`, inline: false });
       }
     }
 

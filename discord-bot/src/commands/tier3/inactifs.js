@@ -61,8 +61,12 @@ module.exports = {
     }
 
     if (membersToCheck.length === 0) {
+      // Fallback DB : on filtre aux membres encore présents sur le serveur
       const allUsers = db.getFullRapport(guildId, null, null);
-      membersToCheck = allUsers.map(u => ({ id: u.discord_id, tag: u.username, display: u.username }));
+      const currentIds = new Set(message.guild.members.cache.map((m, id) => id));
+      membersToCheck = allUsers
+        .filter(u => currentIds.has(u.discord_id))
+        .map(u => ({ id: u.discord_id, tag: u.username, display: u.username }));
     }
 
     const inactifs = membersToCheck.filter(m => !activeIds.has(m.id));

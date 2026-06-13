@@ -103,6 +103,15 @@ module.exports = {
 
     const loading = await message.reply({ content: '⏳ Génération du rapport en cours...' });
 
+    // Charger les membres du serveur courant pour résoudre les mentions
+    let guildMemberIds = new Set();
+    try {
+      const fetched = await message.guild.members.fetch();
+      fetched.forEach((_, id) => guildMemberIds.add(id));
+    } catch {
+      message.guild.members.cache.forEach((_, id) => guildMemberIds.add(id));
+    }
+
     // Serveur source des messages + vocal :
     // priorité à l'ID passé en argument, sinon la config partner, sinon le serveur courant
     const configPartner   = cfg.getPartnerGuildId(message.guild.id);
@@ -192,7 +201,11 @@ module.exports = {
       const msg = u.messages       > 0 ? `💬 ${u.messages.toLocaleString()}msg` : '';
       const vo  = u.vocal_seconds  > 0 ? `🎙️ ${formatDuration(u.vocal_seconds)}` : '';
       const stats = [co, msg, vo].filter(Boolean).join(' · ');
-      return `${medal} <@${u.discord_id}> — ${stats || '*inactif*'}`;
+      // Si le membre est dans le serveur courant → mention résolvable ; sinon afficher le nom en texte
+      const display = guildMemberIds.has(u.discord_id)
+        ? `<@${u.discord_id}>`
+        : `**${u.username || u.discord_id}**`;
+      return `${medal} ${display} — ${stats || '*inactif*'}`;
     });
 
     embed.addFields({ name: `🏆 Classement (${results.length} membres)`, value: lines.join('\n'), inline: false });
@@ -214,10 +227,11 @@ module.exports = {
     const topCo  = results.slice().sort((a, b) => b.connexions    - a.connexions)[0];
     const topMsg = results.slice().sort((a, b) => b.messages      - a.messages)[0];
     const topVo  = results.slice().sort((a, b) => b.vocal_seconds - a.vocal_seconds)[0];
+    const fmtUser = (u) => guildMemberIds.has(u.discord_id) ? `<@${u.discord_id}>` : `**${u.username || u.discord_id}**`;
     const records = [
-      topCo.connexions    > 0 ? `🏆 <@${topCo.discord_id}> — **${topCo.connexions}** co`                    : '',
-      topMsg.messages     > 0 ? `💬 <@${topMsg.discord_id}> — **${topMsg.messages.toLocaleString()}** msg`   : '',
-      topVo.vocal_seconds > 0 ? `🎙️ <@${topVo.discord_id}> — **${formatDuration(topVo.vocal_seconds)}**` : '',
+      topCo.connexions    > 0 ? `🏆 ${fmtUser(topCo)} — **${topCo.connexions}** co`                    : '',
+      topMsg.messages     > 0 ? `💬 ${fmtUser(topMsg)} — **${topMsg.messages.toLocaleString()}** msg`   : '',
+      topVo.vocal_seconds > 0 ? `🎙️ ${fmtUser(topVo)} — **${formatDuration(topVo.vocal_seconds)}**` : '',
     ].filter(Boolean).join('\n');
 
     if (records) embed.addFields({ name: '🌟 Records', value: records, inline: false });

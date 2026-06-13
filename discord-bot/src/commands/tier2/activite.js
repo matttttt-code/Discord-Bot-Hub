@@ -63,7 +63,7 @@ module.exports = {
       .setTitle(`📊 | Activité de ${member.user.username}`)
       .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
       .addFields(
-        { name: '👤 Membre', value: `<@${id}> (\`${id}\`)`, inline: true },
+        { name: '👤 Membre', value: `<@${id}>`, inline: true },
         { name: '📅 Période analysée', value: periodLabel, inline: true },
         { name: '📡 Statut actuel', value: db.isConnected(id) ? '🟢 Connecté' : '🔴 Déconnecté', inline: true },
       )

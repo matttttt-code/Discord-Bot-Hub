@@ -24,7 +24,7 @@ module.exports = {
   usage: '!inactifs [7j / 30j / Xh]',
   async execute(message, args) {
     if (!hasTier3(message.member)) {
-      return message.reply({ embeds: [error('Permission refusée', `Cette commande nécessite le rôle **${process.env.TIER3_ROLE_NAME || 'Gérant'}**.`)] });
+      return message.reply({ embeds: [error('Permission refusée', `Cette commande nécessite le rôle **${process.env.TIER3_ROLE_NAME || 'Manager'}**.`)] });
     }
 
     const guildId = message.guild.id;

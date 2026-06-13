@@ -646,12 +646,20 @@ module.exports = {
     pgWrite(`UPDATE op_users SET last_sanctioned_at=$1 WHERE discord_id=$2`, [t, discordId]);
   },
 
-  getInactiveForSanction(days) {
+  getInactiveForSanction(days, guildId) {
     const threshold  = now() - days * 86400;
     const cooldown   = now() - 86400;
+    const nowTs      = now();
     const users      = db.get('users').filter(u => !u.gele && u.total_connexions > 0).value();
     return users.filter(u => {
       if (u.last_sanctioned_at && u.last_sanctioned_at > cooldown) return false;
+      // Exclure les membres en absence active
+      if (guildId) {
+        const activeAbsence = db.get('absences').find(
+          a => a.discord_id === u.discord_id && a.guild_id === guildId && !a.ended && a.end_time > nowTs
+        ).value();
+        if (activeAbsence) return false;
+      }
       const lastSession = db.get('sessions')
         .filter(s => s.discord_id === u.discord_id && s.end_time !== null)
         .sortBy(s => -s.end_time).first().value();

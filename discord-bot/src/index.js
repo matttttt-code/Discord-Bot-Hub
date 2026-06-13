@@ -1,3 +1,4 @@
+54608012ee9e7c7a720412fda7306210645dd405
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, ActivityType, EmbedBuilder,
         ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
@@ -451,6 +452,31 @@ client.on('interactionCreate', async (interaction) => {
         .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Absence` });
 
       try { await interaction.user.send({ embeds: [dmEmbed] }); } catch {}
+
+      // ── Envoi dans le salon abslog ───────────────────────────
+      const absLogChannelId = cfg.get('absence_log_channel_id', guildId);
+      if (absLogChannelId) {
+        try {
+          const absLogChannel = interaction.guild.channels.cache.get(absLogChannelId)
+            || await interaction.guild.channels.fetch(absLogChannelId).catch(() => null);
+          if (absLogChannel) {
+            const logEmbed = new EmbedBuilder()
+              .setColor(COLORS.warning)
+              .setTitle('🌙 | Nouvelle absence déclarée')
+              .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
+              .addFields(
+                { name: '👤 Membre',     value: `<@${id}> (\`${username}\`)`,                  inline: false },
+                { name: '📅 Début',      value: `${fmtDate(startTime)} (<t:${startTime}:F>)`, inline: true  },
+                { name: '📅 Fin prévue', value: `${fmtDate(endTime)} (<t:${endTime}:R>)`,     inline: true  },
+                { name: '⏱️ Durée',      value: durLabel(durSec),                             inline: true  },
+                { name: '📋 Motif',      value: reason,                                        inline: false },
+              )
+              .setTimestamp()
+              .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Absence Log` });
+            await absLogChannel.send({ content: `<@&1506758584443080735>`, embeds: [logEmbed] });
+          }
+        } catch {}
+      }
 
       return interaction.reply({
         content: `✅ Absence enregistrée ! Fin prévue <t:${endTime}:R>. Tu recevras un DM à la fin.`,

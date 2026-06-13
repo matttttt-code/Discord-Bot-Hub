@@ -385,34 +385,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 client.on('interactionCreate', async (interaction) => {
   try {
 
-    // ── Pagination !staff ────────────────────────────────────
-    if (interaction.isButton() && (interaction.customId.startsWith('staff_prev_') || interaction.customId.startsWith('staff_next_'))) {
-      const parts    = interaction.customId.split('_');
-      // format: staff_prev_{authorId}_{page}  ou  staff_next_{authorId}_{page}
-      const dir      = parts[1]; // 'prev' ou 'next'
-      const authorId = parts[2];
-      const curPage  = parseInt(parts[3]);
-
-      if (interaction.user.id !== authorId) {
-        return interaction.reply({ content: `❌ Seul(e) l'auteur de la commande peut tourner les pages.`, ephemeral: true });
-      }
-
-      const staffCmd = require('./commands/tier2/staff');
-      const guildId  = interaction.guild.id;
-      const { sorted, memberMap, activeAbsenceIds } = await staffCmd.buildStaffData(interaction.guild);
-      const totalPages = Math.ceil(sorted.length / staffCmd.PER_PAGE);
-      const newPage    = dir === 'next' ? curPage + 1 : curPage - 1;
-
-      if (newPage < 0 || newPage >= totalPages) {
-        return interaction.reply({ content: '❌ Page invalide.', ephemeral: true });
-      }
-
-      const embed = staffCmd.buildPage(sorted, memberMap, activeAbsenceIds, guildId, newPage, totalPages);
-      const row   = staffCmd.buildRow(authorId, newPage, totalPages);
-
-      return interaction.update({ embeds: [embed], components: totalPages > 1 ? [row] : [] });
-    }
-
     // ── Bouton : ouvrir le modal d'absence ──────────────────
     if (interaction.isButton() && interaction.customId.startsWith('absence_open_modal_')) {
       const userId  = interaction.customId.replace('absence_open_modal_', '');

@@ -4,7 +4,7 @@ const cfg = require('../../utils/config');
 
 const SETTINGS = {
   tier2:       { label: 'Rôle Administration (Tier 2)', icon: '👮', key: 'tier2_role_id',          type: 'role' },
-  tier3:       { label: 'Rôle Gérant (Tier 3)',         icon: '🏆', key: 'tier3_role_id',          type: 'role' },
+  tier3:       { label: 'Rôle Manager (Tier 3)',         icon: '🏆', key: 'tier3_role_id',          type: 'role' },
   botmanager:  { label: 'Rôle Gestionnaire Bot',        icon: '🤖', key: 'bot_manager_role_id',    type: 'role' },
   active:      { label: 'Rôle Membre Actif (vocal)',    icon: '🟢', key: 'active_role_id',         type: 'role' },
   pingrole:    { label: 'Rôle Ping Connexion',          icon: '🔔', key: 'ping_role_id',           type: 'role' },
@@ -12,7 +12,7 @@ const SETTINGS = {
   logs:        { label: 'Salon Logs',                   icon: '📋', key: 'logs_channel_id',        type: 'channel' },
   connexion:   { label: 'Salon Connexion',              icon: '🔌', key: 'connexion_channel_id',   type: 'channel' },
   admin:       { label: 'Salon Commandes Admin',        icon: '⚙️', key: 'admin_channel_id',       type: 'channel' },
-  manager:     { label: 'Salon Commandes Gérant',       icon: '🛡️', key: 'manager_channel_id',     type: 'channel' },
+  manager:     { label: 'Salon Commandes Manager',       icon: '🛡️', key: 'manager_channel_id',     type: 'channel' },
   abslog:      { label: 'Salon Log Absences',           icon: '🌙', key: 'absence_log_channel_id', type: 'channel' },
   maintenance: { label: 'Mode Maintenance',             icon: '🔧', key: 'maintenance_mode',       type: 'toggle' },
   startdate:   { label: 'Date de début rapport',        icon: '📅', key: 'rapport_start_date',     type: 'date' },
@@ -94,7 +94,7 @@ module.exports = {
       const hasBotManager = managerRoleId && message.member.roles.cache.has(managerRoleId);
       const hasTier3Role = cfg.getTier3RoleId(message.guild.id) && message.member.roles.cache.has(cfg.getTier3RoleId(message.guild.id));
       if (!message.member.permissions.has(PermissionFlagsBits.Administrator) && !hasBotManager && !hasTier3Role) {
-        return message.reply({ embeds: [error('Permission refusée', 'Tu dois être **Administrateur**, avoir le rôle **Gérant** ou **Gestionnaire Bot**.')] });
+        return message.reply({ embeds: [error('Permission refusée', 'Tu dois être **Administrateur**, avoir le rôle **Manager** ou **Gestionnaire Bot**.')] });
       }
     }
 
@@ -180,7 +180,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
   embed.addFields({ name: '\u200B', value: '**── 🎭 Rôles ──**', inline: false });
   const roles = [
     { key: 'tier2_role_id',       icon: '👮', label: 'Administration (Tier 2)' },
-    { key: 'tier3_role_id',       icon: '🏆', label: 'Gérant (Tier 3)' },
+    { key: 'tier3_role_id',       icon: '🏆', label: 'Manager (Tier 3)' },
     { key: 'bot_manager_role_id', icon: '🤖', label: 'Gestionnaire Bot' },
     { key: 'active_role_id',      icon: '🟢', label: 'Membre Actif (vocal)' },
     { key: 'ping_role_id',        icon: '🔔', label: 'Ping Connexion (!c/!d)' },
@@ -196,7 +196,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
     { key: 'logs_channel_id',          icon: '📋', label: 'Logs' },
     { key: 'connexion_channel_id',     icon: '🔌', label: 'Connexion' },
     { key: 'admin_channel_id',         icon: '⚙️', label: 'Commandes Admin' },
-    { key: 'manager_channel_id',       icon: '🛡️', label: 'Commandes Gérant' },
+    { key: 'manager_channel_id',       icon: '🛡️', label: 'Commandes Manager' },
     { key: 'absence_log_channel_id',   icon: '🌙', label: 'Log Absences' },
   ];
   for (const c of channels) {
@@ -230,7 +230,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
     name: 'Paramètres modifiables',
     value: [
       '`!setup tier2 @role` — Rôle Administration',
-      '`!setup tier3 @role` — Rôle Gérant',
+      '`!setup tier3 @role` — Rôle Manager',
       '`!setup botmanager @role` — Rôle Gestionnaire Bot',
       '`!setup active @role` — Rôle Membre Actif (vocal)',
       '`!setup pingrole @role` — Rôle pingé lors des !c / !d',
@@ -238,7 +238,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
       '`!setup logs #salon` — Salon Logs',
       '`!setup connexion #salon` — Salon Connexion',
       '`!setup admin #salon` — Salon Commandes Admin',
-      '`!setup manager #salon` — Salon Commandes Gérant',
+      '`!setup manager #salon` — Salon Commandes Manager',
       '`!setup abslog #salon` — Salon Log Absences (ping à chaque déclaration)',
       '`!setup maintenance on/off` — Mode Maintenance',
       '`!setup startdate DD/MM/YYYY` — Date de début rapport',

@@ -175,7 +175,7 @@ client.once('clientReady', async () => {
               { name: '📅 Heure',            value: `<t:${Math.floor(Date.now()/1000)}:T>`, inline: true },
             )
             .setTimestamp()
-            .setFooter({ text: `${botName} • Notification Gérant` });
+            .setFooter({ text: `${botName} • Notification Manager` });
           await member.send({ embeds: [dmEmbed] });
         } catch {} // DMs désactivés ou autre erreur → on ignore
       }

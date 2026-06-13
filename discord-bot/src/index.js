@@ -214,6 +214,61 @@ client.once('clientReady', async () => {
 
   setInterval(checkAbsences, 60_000);
   checkAbsences();
+
+  // ── Checker sanction-auto (toutes les heures) ───────────────
+  async function checkSanctionAuto() {
+    try {
+      for (const guild of client.guilds.cache.values()) {
+        const guildId = guild.id;
+        if (cfg.get('sanction_auto_enabled', guildId) !== '1') continue;
+
+        const jours     = parseInt(cfg.get('sanction_auto_jours', guildId));
+        const channelId = cfg.get('sanction_auto_channel_id', guildId);
+        const roleId    = cfg.get('sanction_auto_role_id', guildId);
+        if (!jours || !channelId || !roleId) continue;
+
+        const channel = guild.channels.cache.get(channelId)
+          || await guild.channels.fetch(channelId).catch(() => null);
+        if (!channel) continue;
+
+        const inactifs = db.getInactiveForSanction(jours);
+        for (const user of inactifs) {
+          try {
+            const member = await guild.members.fetch(user.discord_id).catch(() => null);
+            if (!member) continue;
+
+            const embed = new EmbedBuilder()
+              .setColor(COLORS.error)
+              .setTitle('⚠️ Membre inactif — Sanction automatique')
+              .setDescription(`<@${user.discord_id}> n'a effectué **aucune connexion depuis plus de ${jours} jour${jours > 1 ? 's' : ''}**.`)
+              .addFields(
+                { name: '👤 Membre',         value: `<@${user.discord_id}>`,    inline: true },
+                { name: '🏆 Total co.',       value: `**${user.total_connexions}**`, inline: true },
+                { name: '📅 Seuil dépassé',  value: `**${jours} jour${jours > 1 ? 's' : ''}**`, inline: true },
+              )
+              .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+              .setTimestamp()
+              .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Sanction Auto` });
+
+            await channel.send({
+              content: `<@&${roleId}> <@${user.discord_id}>`,
+              embeds: [embed],
+              allowedMentions: { users: [user.discord_id], roles: [roleId] },
+            });
+
+            db.markSanctioned(user.discord_id);
+          } catch (e) {
+            console.error('[SanctionAuto] Erreur membre', user.discord_id, e.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[SanctionAuto] Erreur checker :', e.message);
+    }
+  }
+
+  setInterval(checkSanctionAuto, 3_600_000);
+  checkSanctionAuto();
 });
 
 // ── Messages ──────────────────────────────────────────────────────

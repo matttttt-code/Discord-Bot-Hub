@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 
 const COLORS = {
-  primary: 0xFFD700,
-  success: 0x57F287,
-  error: 0xFF4757,
-  info: 0x5865F2,
+  primary: 0x1ABC9C,
+  success: 0x1ABC9C,
+  error:   0xFF4757,
+  info:    0x1ABC9C,
   warning: 0xFEE75C,
-  online: 0x57F287,
+  online:  0x1ABC9C,
   offline: 0xFF4757,
 };
 

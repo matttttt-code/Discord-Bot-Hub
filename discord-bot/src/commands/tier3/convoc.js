@@ -176,22 +176,8 @@ module.exports = {
         if (interaction.customId === 'convoc_done') {
           const doneTs = Math.floor(Date.now() / 1000);
 
-          // Mettre à jour le salon
-          const salonDoneEmbed = new EmbedBuilder()
-            .setColor(COLORS.success)
-            .setTitle('✅ | Convocation effectuée')
-            .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-            .setDescription(`La convocation de <@${member.id}> a été **effectuée**.`)
-            .addFields(
-              { name: '👤 Membre',       value: `<@${member.id}>`,           inline: true },
-              { name: '👮 Convoqué par', value: `<@${message.author.id}>`,   inline: true },
-              { name: '📋 Motif',        value: raison,                      inline: false },
-              { name: '📅 Effectuée le', value: `<t:${doneTs}:F>`,           inline: true },
-            )
-            .setTimestamp()
-            .setFooter({ text: `${BOT()} • Convocation clôturée` });
-
-          await message.channel.send({ embeds: [salonDoneEmbed] }).catch(() => {});
+          // Petit message simple dans le salon
+          await message.channel.send(`✅ Convocation effectuée pour <@${member.id}>.`).catch(() => {});
 
           // Mettre à jour le DM de l'auteur
           const dmDoneEmbed = new EmbedBuilder()

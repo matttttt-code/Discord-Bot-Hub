@@ -37,7 +37,7 @@ module.exports = {
     embed.addFields({ name: '\u200B', value: '**── 🎭 Rôles configurés ──**', inline: false });
     const roles = [
       { key: 'tier2_role_id',       icon: '👮', label: 'Administration (Tier 2)' },
-      { key: 'tier3_role_id',       icon: '👑', label: 'Gérant (Tier 3)' },
+      { key: 'tier3_role_id',       icon: '👑', label: 'Manager (Tier 3)' },
       { key: 'bot_manager_role_id', icon: '🤖', label: 'Gestionnaire Bot' },
       { key: 'active_role_id',      icon: '🟢', label: 'Membre Actif (vocal)' },
       { key: 'ping_role_id',        icon: '🔔', label: 'Ping Connexion (!c/!d)' },
@@ -58,7 +58,7 @@ module.exports = {
       { key: 'logs_channel_id',      icon: '📋', label: 'Logs' },
       { key: 'connexion_channel_id', icon: '🔌', label: 'Connexion' },
       { key: 'admin_channel_id',     icon: '⚙️', label: 'Commandes Admin' },
-      { key: 'manager_channel_id',   icon: '🛡️', label: 'Commandes Gérant' },
+      { key: 'manager_channel_id',   icon: '🛡️', label: 'Commandes Manager' },
     ];
     for (const c of channels) {
       const val = cfg.get(c.key, guildId);

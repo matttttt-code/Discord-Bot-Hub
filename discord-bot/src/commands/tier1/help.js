@@ -20,7 +20,7 @@ module.exports = {
     }
 
     const t2Name = roleName(cfg.getTier2RoleId(guildId), process.env.TIER2_ROLE_NAME || "EQUIPE D'ADMINISTRATION");
-    const t3Name = roleName(cfg.getTier3RoleId(guildId), process.env.TIER3_ROLE_NAME || '🏆•Gérant');
+    const t3Name = roleName(cfg.getTier3RoleId(guildId), process.env.TIER3_ROLE_NAME || '🏆•Manager');
 
     const embed = new EmbedBuilder()
       .setColor(COLORS.primary)

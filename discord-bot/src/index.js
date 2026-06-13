@@ -1,11 +1,13 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, ActivityType, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ActivityType, EmbedBuilder,
+        ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { loadCommands, handleCommand } = require('./commandHandler');
 const db     = require('./database');
 const logger = require('./utils/logger');
 const cfg    = require('./utils/config');
 const pg     = require('./db/pg');
-const { COLORS } = require('./utils/embeds');
+const { COLORS }            = require('./utils/embeds');
+const { updateAbsenceBoard, parseDuration, durLabel, fmtDate } = require('./utils/absenceBoard');
 
 const client = new Client({
   intents: [
@@ -206,6 +208,11 @@ client.once('clientReady', async () => {
             .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Fin d'absence` });
           await user.send({ embeds: [endEmbed] });
         } catch {}
+        // Mettre à jour le board des absences
+        try {
+          const g = client.guilds.cache.find(gr => gr.id === absence.guild_id) || client.guilds.cache.first();
+          if (g) await updateAbsenceBoard(client, g);
+        } catch {}
       }
     } catch (e) {
       console.error('[Absences] Erreur checker :', e.message);
@@ -231,7 +238,7 @@ client.once('clientReady', async () => {
           || await guild.channels.fetch(channelId).catch(() => null);
         if (!channel) continue;
 
-        const inactifs = db.getInactiveForSanction(jours);
+        const inactifs = db.getInactiveForSanction(jours, guildId);
         for (const user of inactifs) {
           try {
             const member = await guild.members.fetch(user.discord_id).catch(() => null);
@@ -320,6 +327,107 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       if (joined || moved)  await member.roles.add(activeRoleId).catch(() => {});
       else if (left)        await member.roles.remove(activeRoleId).catch(() => {});
     } catch {}
+  }
+});
+
+// ── Interactions (boutons + modals absence) ───────────────────
+client.on('interactionCreate', async (interaction) => {
+  try {
+    // ── Bouton : ouvrir le modal d'absence ──────────────────
+    if (interaction.isButton() && interaction.customId.startsWith('absence_open_modal_')) {
+      const userId  = interaction.customId.replace('absence_open_modal_', '');
+      if (interaction.user.id !== userId) {
+        return interaction.reply({ content: '❌ Ce bouton ne t\'appartient pas.', ephemeral: true });
+      }
+
+      const existing = db.getUserAbsence(interaction.user.id, interaction.guild.id);
+      if (existing) {
+        return interaction.reply({ content: '⚠️ Tu as déjà une absence active.', ephemeral: true });
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId('absence_modal')
+        .setTitle('🌙 Déclarer une absence');
+
+      const durationInput = new TextInputBuilder()
+        .setCustomId('absence_duration')
+        .setLabel('Durée (ex: 3j, 2h, 1j6h30m)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('3j / 2h / 1j6h')
+        .setRequired(true)
+        .setMaxLength(20);
+
+      const reasonInput = new TextInputBuilder()
+        .setCustomId('absence_reason')
+        .setLabel('Motif')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Vacances, repos, raison personnelle...')
+        .setRequired(false)
+        .setMaxLength(300);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(durationInput),
+        new ActionRowBuilder().addComponents(reasonInput),
+      );
+
+      return interaction.showModal(modal);
+    }
+
+    // ── Modal submit : créer l'absence ──────────────────────
+    if (interaction.isModalSubmit() && interaction.customId === 'absence_modal') {
+      const { id, username } = interaction.user;
+      const guildId = interaction.guild.id;
+
+      const existing = db.getUserAbsence(id, guildId);
+      if (existing) {
+        return interaction.reply({ content: '⚠️ Tu as déjà une absence active.', ephemeral: true });
+      }
+
+      const durationStr = interaction.fields.getTextInputValue('absence_duration');
+      const reason      = interaction.fields.getTextInputValue('absence_reason').trim() || 'Non précisé';
+
+      const durSec = parseDuration(durationStr);
+      if (!durSec) {
+        return interaction.reply({
+          content: '❌ Durée invalide. Exemples valides : `3j`, `2h`, `1j6h30m`.',
+          ephemeral: true,
+        });
+      }
+
+      const nowTs   = Math.floor(Date.now() / 1000);
+      const endTime = nowTs + durSec;
+
+      db.createUser(id, username);
+      db.addAbsence(id, username, guildId, reason, nowTs, endTime);
+
+      await updateAbsenceBoard(client, interaction.guild);
+
+      // DM de confirmation
+      const dmEmbed = new EmbedBuilder()
+        .setColor(COLORS.warning)
+        .setTitle('🌙 | Absence enregistrée')
+        .setDescription('Ton absence a bien été enregistrée. Tu seras notifié(e) automatiquement à la fin.')
+        .addFields(
+          { name: '📅 Début',      value: fmtDate(nowTs),                          inline: true },
+          { name: '📅 Fin prévue', value: `${fmtDate(endTime)} (<t:${endTime}:R>)`, inline: true },
+          { name: '⏱️ Durée',      value: durLabel(durSec),                        inline: true },
+          { name: '📋 Motif',      value: reason,                                   inline: false },
+        )
+        .setTimestamp()
+        .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Absence` });
+
+      try { await interaction.user.send({ embeds: [dmEmbed] }); } catch {}
+
+      return interaction.reply({
+        content: `✅ Absence enregistrée ! Fin prévue <t:${endTime}:R>. Tu recevras un DM à la fin.`,
+        ephemeral: true,
+      });
+    }
+  } catch (e) {
+    console.error('[Interaction] Erreur :', e.message);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ Une erreur est survenue.', ephemeral: true }).catch(() => {});
+    }
   }
 });
 

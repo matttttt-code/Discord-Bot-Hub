@@ -3,18 +3,19 @@ const { COLORS, error, success } = require('../../utils/embeds');
 const cfg = require('../../utils/config');
 
 const SETTINGS = {
-  tier2:       { label: 'Rôle Administration (Tier 2)', icon: '👮', key: 'tier2_role_id',       type: 'role' },
-  tier3:       { label: 'Rôle Gérant (Tier 3)',         icon: '🏆', key: 'tier3_role_id',       type: 'role' },
-  botmanager:  { label: 'Rôle Gestionnaire Bot',        icon: '🤖', key: 'bot_manager_role_id', type: 'role' },
-  active:      { label: 'Rôle Membre Actif (vocal)',    icon: '🟢', key: 'active_role_id',      type: 'role' },
-  pingrole:    { label: 'Rôle Ping Connexion',          icon: '🔔', key: 'ping_role_id',        type: 'role' },
-  enregistree: { label: 'Rôle Enregistrée (rapport)',   icon: '📋', key: 'enregistree_role_id', type: 'role' },
-  logs:        { label: 'Salon Logs',                   icon: '📋', key: 'logs_channel_id',     type: 'channel' },
-  connexion:   { label: 'Salon Connexion',              icon: '🔌', key: 'connexion_channel_id',type: 'channel' },
-  admin:       { label: 'Salon Commandes Admin',        icon: '⚙️', key: 'admin_channel_id',    type: 'channel' },
-  manager:     { label: 'Salon Commandes Gérant',       icon: '🛡️', key: 'manager_channel_id',  type: 'channel' },
-  maintenance: { label: 'Mode Maintenance',             icon: '🔧', key: 'maintenance_mode',    type: 'toggle' },
-  startdate:   { label: 'Date de début rapport',        icon: '📅', key: 'rapport_start_date',  type: 'date' },
+  tier2:       { label: 'Rôle Administration (Tier 2)', icon: '👮', key: 'tier2_role_id',          type: 'role' },
+  tier3:       { label: 'Rôle Gérant (Tier 3)',         icon: '🏆', key: 'tier3_role_id',          type: 'role' },
+  botmanager:  { label: 'Rôle Gestionnaire Bot',        icon: '🤖', key: 'bot_manager_role_id',    type: 'role' },
+  active:      { label: 'Rôle Membre Actif (vocal)',    icon: '🟢', key: 'active_role_id',         type: 'role' },
+  pingrole:    { label: 'Rôle Ping Connexion',          icon: '🔔', key: 'ping_role_id',           type: 'role' },
+  enregistree: { label: 'Rôle Enregistrée (rapport)',   icon: '📋', key: 'enregistree_role_id',    type: 'role' },
+  logs:        { label: 'Salon Logs',                   icon: '📋', key: 'logs_channel_id',        type: 'channel' },
+  connexion:   { label: 'Salon Connexion',              icon: '🔌', key: 'connexion_channel_id',   type: 'channel' },
+  admin:       { label: 'Salon Commandes Admin',        icon: '⚙️', key: 'admin_channel_id',       type: 'channel' },
+  manager:     { label: 'Salon Commandes Gérant',       icon: '🛡️', key: 'manager_channel_id',     type: 'channel' },
+  abslog:      { label: 'Salon Log Absences',           icon: '🌙', key: 'absence_log_channel_id', type: 'channel' },
+  maintenance: { label: 'Mode Maintenance',             icon: '🔧', key: 'maintenance_mode',       type: 'toggle' },
+  startdate:   { label: 'Date de début rapport',        icon: '📅', key: 'rapport_start_date',     type: 'date' },
   partner:     { label: 'Serveur partenaire (messages/vocal)', icon: '🔗', key: 'partner_guild_id', type: 'snowflake' },
 };
 
@@ -46,7 +47,6 @@ function resolveValue(guild, setting, rawArg) {
     return null;
   }
   if (setting.type === 'date') {
-    // Format DD/MM ou DD/MM/YYYY
     const ddmm = rawArg?.match(/^(\d{1,2})\/(\d{1,2})$/);
     if (ddmm) {
       const year = new Date().getFullYear();
@@ -117,7 +117,7 @@ module.exports = {
       const current = displayValue(message.guild, setting, currentRaw);
       let hint = '';
       if (setting.type === 'toggle') hint = 'Valeurs : `on` / `off`';
-      else if (setting.type === 'role') hint = 'Valeur : `@role` ou ID du rôle (fonctionne avec un ID d\'un autre serveur)';
+      else if (setting.type === 'role') hint = 'Valeur : `@role` ou ID du rôle';
       else if (setting.type === 'channel') hint = 'Valeur : `#salon` ou ID du salon';
       else if (setting.type === 'date') hint = 'Valeur : `DD/MM` ou `DD/MM/YYYY` (ex: `01/06/2025`)';
       else if (setting.type === 'snowflake') hint = 'Valeur : ID du serveur Discord (ex: `1234567890123456789`)';
@@ -159,7 +159,6 @@ module.exports = {
 
 async function sendDashboard(message, guildId, successMsg = null) {
   const guild = message.guild;
-  const allConfig = cfg;
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.primary)
@@ -170,7 +169,6 @@ async function sendDashboard(message, guildId, successMsg = null) {
     .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Configuration` });
 
   const maintenance = cfg.get('maintenance_mode', guildId);
-
   embed.addFields({
     name: '🔧 Statut du bot',
     value: maintenance === '1'
@@ -180,7 +178,6 @@ async function sendDashboard(message, guildId, successMsg = null) {
   });
 
   embed.addFields({ name: '\u200B', value: '**── 🎭 Rôles ──**', inline: false });
-
   const roles = [
     { key: 'tier2_role_id',       icon: '👮', label: 'Administration (Tier 2)' },
     { key: 'tier3_role_id',       icon: '🏆', label: 'Gérant (Tier 3)' },
@@ -189,32 +186,22 @@ async function sendDashboard(message, guildId, successMsg = null) {
     { key: 'ping_role_id',        icon: '🔔', label: 'Ping Connexion (!c/!d)' },
     { key: 'enregistree_role_id', icon: '📋', label: 'Enregistrée (rapport)' },
   ];
-
   for (const r of roles) {
     const val = cfg.get(r.key, guildId);
-    embed.addFields({
-      name: `${r.icon} ${r.label}`,
-      value: val ? `<@&${val}>` : '`Non configuré`',
-      inline: true
-    });
+    embed.addFields({ name: `${r.icon} ${r.label}`, value: val ? `<@&${val}>` : '`Non configuré`', inline: true });
   }
 
   embed.addFields({ name: '\u200B', value: '**── 📢 Salons ──**', inline: false });
-
   const channels = [
-    { key: 'logs_channel_id', icon: '📋', label: 'Logs' },
-    { key: 'connexion_channel_id', icon: '🔌', label: 'Connexion' },
-    { key: 'admin_channel_id', icon: '⚙️', label: 'Commandes Admin' },
-    { key: 'manager_channel_id', icon: '🛡️', label: 'Commandes Gérant' },
+    { key: 'logs_channel_id',          icon: '📋', label: 'Logs' },
+    { key: 'connexion_channel_id',     icon: '🔌', label: 'Connexion' },
+    { key: 'admin_channel_id',         icon: '⚙️', label: 'Commandes Admin' },
+    { key: 'manager_channel_id',       icon: '🛡️', label: 'Commandes Gérant' },
+    { key: 'absence_log_channel_id',   icon: '🌙', label: 'Log Absences' },
   ];
-
   for (const c of channels) {
     const val = cfg.get(c.key, guildId);
-    embed.addFields({
-      name: `${c.icon} ${c.label}`,
-      value: val ? `<#${val}>` : '`Non configuré`',
-      inline: true
-    });
+    embed.addFields({ name: `${c.icon} ${c.label}`, value: val ? `<#${val}>` : '`Non configuré`', inline: true });
   }
 
   embed.addFields({ name: '\u200B', value: '**── 🔗 Multi-serveur ──**', inline: false });
@@ -252,6 +239,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
       '`!setup connexion #salon` — Salon Connexion',
       '`!setup admin #salon` — Salon Commandes Admin',
       '`!setup manager #salon` — Salon Commandes Gérant',
+      '`!setup abslog #salon` — Salon Log Absences (ping à chaque déclaration)',
       '`!setup maintenance on/off` — Mode Maintenance',
       '`!setup startdate DD/MM/YYYY` — Date de début rapport',
       '`!setup partner ID_SERVEUR` — Lier serveur principal (messages/vocal)',

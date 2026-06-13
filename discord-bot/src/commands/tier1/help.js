@@ -71,31 +71,39 @@ module.exports = {
 
     // ── Tier 3 ──────────────────────────────────────────────────
     if (t3) {
-      embed.addFields({
-        name: `👑 Tier 3 — @${t3Name}`,
-        value: [
-          `\`${prefix}co [@user]\` — Connecter manuellement un membre`,
-          `\`${prefix}deco [@user]\` — Déconnecter manuellement un membre`,
-          `\`${prefix}add [N] [@user]\` — Ajouter N connexions`,
-          `\`${prefix}remove [N] [@user]\` — Retirer N connexions`,
-          `\`${prefix}rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM]\` — Recalculer une période`,
-          `\`${prefix}rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM] --force\` — Rewind après reset (compte toutes les co)`,
-          `\`${prefix}cancelrewind [id]\` — Annuler un rewind (retire les co ajoutées)`,
-          `\`${prefix}cancelrewind list\` — Voir les rewinds récents et leurs IDs`,
-          `\`${prefix}delete [@user]\` — Supprimer un membre de la base`,
-          `\`${prefix}reset\` — Réinitialiser toutes les données`,
-          `\`${prefix}announce [message]\` — Annonce dans le salon connexion`,
-          `\`${prefix}activeco\` — Activer / désactiver les commandes \`!c\` et \`!d\``,
-          `\`${prefix}inactifs [7j/30j]\` — Liste des membres sans activité sur la période`,
-          `\`${prefix}logsco @membre\` — Historique détaillé des connexions d'un membre`,
-          `\`${prefix}avert @user [raison]\` — Avertir un membre (MP automatique)`,
-          `\`${prefix}avert @user list\` — Voir les avertissements d'un membre`,
-          `\`${prefix}revive @user [message]\` — Envoyer un MP de relance à un membre`,
-          `\`${prefix}support [texte]\` — Signalement à l'équipe dev`,
-          `\`${prefix}setup [param] [valeur]\` — Configurer le bot`,
-        ].join('\n'),
-        inline: false
-      });
+      embed.addFields(
+        {
+          name: `👑 Tier 3 — @${t3Name} (1/2)`,
+          value: [
+            `\`${prefix}co [@user]\` — Connecter manuellement un membre`,
+            `\`${prefix}deco [@user]\` — Déconnecter manuellement un membre`,
+            `\`${prefix}add [N] [@user]\` — Ajouter N connexions`,
+            `\`${prefix}remove [N] [@user]\` — Retirer N connexions`,
+            `\`${prefix}rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM]\` — Recalculer une période`,
+            `\`${prefix}rewind ... --force\` — Rewind après reset (compte toutes les co)`,
+            `\`${prefix}cancelrewind [id]\` — Annuler un rewind`,
+            `\`${prefix}cancelrewind list\` — Voir les rewinds récents`,
+            `\`${prefix}delete [@user]\` — Supprimer un membre de la base`,
+            `\`${prefix}reset\` — Réinitialiser toutes les données`,
+          ].join('\n'),
+          inline: false
+        },
+        {
+          name: `👑 Tier 3 — @${t3Name} (2/2)`,
+          value: [
+            `\`${prefix}announce [message]\` — Annonce dans le salon connexion`,
+            `\`${prefix}activeco\` — Activer / désactiver les commandes \`!c\` et \`!d\``,
+            `\`${prefix}inactifs [7j/30j]\` — Liste des membres sans activité`,
+            `\`${prefix}logsco @membre\` — Historique détaillé des connexions`,
+            `\`${prefix}avert @user [raison]\` — Avertir un membre (MP automatique)`,
+            `\`${prefix}avert @user list\` — Voir les avertissements d'un membre`,
+            `\`${prefix}revive @user [message]\` — Envoyer un MP de relance`,
+            `\`${prefix}support [texte]\` — Signalement à l'équipe dev`,
+            `\`${prefix}setup [param] [valeur]\` — Configurer le bot`,
+          ].join('\n'),
+          inline: false
+        }
+      );
     }
 
     return message.reply({ embeds: [embed] });

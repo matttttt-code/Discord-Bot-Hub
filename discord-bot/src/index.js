@@ -150,6 +150,36 @@ client.once('clientReady', async () => {
     } catch {}
   }
 
+  // ── DM de démarrage aux membres Tier 3 ─────────────────────
+  for (const guild of client.guilds.cache.values()) {
+    const tier3RoleId = cfg.getTier3RoleId(guild.id);
+    if (!tier3RoleId) continue;
+    try {
+      await guild.members.fetch(); // s'assure que le cache est complet
+      const tier3Members = guild.members.cache.filter(m =>
+        !m.user.bot && m.roles.cache.has(tier3RoleId)
+      );
+      const pool     = pg.getPool();
+      const pgStatus = pool ? '🟢 Connectée' : '🔴 Non disponible';
+      for (const [, member] of tier3Members) {
+        try {
+          const dmEmbed = new EmbedBuilder()
+            .setColor(pool ? COLORS.success : COLORS.warning)
+            .setTitle('🔄 Bot redémarré')
+            .setDescription(`Le bot **${botName}** sur **${guild.name}** vient de redémarrer.`)
+            .addFields(
+              { name: '🗄️ Base de données', value: pgStatus,                               inline: true },
+              { name: '🟢 Connectés',        value: `**${db.getOnlineUsers().length}**`,    inline: true },
+              { name: '📅 Heure',            value: `<t:${Math.floor(Date.now()/1000)}:T>`, inline: true },
+            )
+            .setTimestamp()
+            .setFooter({ text: `${botName} • Notification Gérant` });
+          await member.send({ embeds: [dmEmbed] });
+        } catch {} // DMs désactivés ou autre erreur → on ignore
+      }
+    } catch {}
+  }
+
   // ── Checker d'absences terminées (toutes les 60s) ──────────
   async function checkAbsences() {
     try {

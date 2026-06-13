@@ -30,4 +30,3 @@ externalPort = 80
 [userenv]
 
 [userenv.development]
-GITHUB_PAT_TEMP = "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"

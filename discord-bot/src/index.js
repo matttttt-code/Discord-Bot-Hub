@@ -75,37 +75,6 @@ client.once('clientReady', async () => {
     status: 'online',
   });
 
-  // Rapport de démarrage dans le salon logs de chaque serveur
-  for (const guild of client.guilds.cache.values()) {
-    const logsId = cfg.getLogsChannelId(guild.id);
-    if (!logsId) continue;
-    const logsChannel = guild.channels.cache.get(logsId);
-    if (!logsChannel) continue;
-
-    try {
-      const pool    = pg.getPool();
-      const pgStatus = pool ? '🟢 Connectée' : '🔴 Non disponible';
-      const confKeys = cfg.getCachedKeyCount(guild.id);
-
-      const embed = new EmbedBuilder()
-        .setColor(pool ? COLORS.success : COLORS.error)
-        .setTitle('🤖 Bot redémarré')
-        .addFields(
-          { name: '🗄️ Base de données', value: pgStatus,                     inline: true },
-          { name: '⚙️ Config chargée',  value: `**${confKeys}** clé(s)`,       inline: true },
-          { name: '📅 Heure',            value: `<t:${Math.floor(Date.now()/1000)}:F>`, inline: true },
-        )
-        .setTimestamp()
-        .setFooter({ text: `${botName} • Démarrage` });
-
-      if (!pool) {
-        embed.setDescription('⚠️ **DATABASE_URL introuvable ou PostgreSQL inaccessible.**\nLa configuration et les connexions ne seront **pas sauvegardées** entre les redémarrages.\nVérifiez la variable `DATABASE_URL` dans les paramètres Railway.');
-      }
-
-      await logsChannel.send({ embeds: [embed] });
-    } catch {}
-  }
-
   // ── Re-sync des états vocaux Discord → DB ──────────────────
   // Peuple voice_active pour tous les membres actuellement en vocal
   // (après un redémarrage, aucun voiceStateUpdate ne se déclenche pour eux)
@@ -123,6 +92,62 @@ client.once('clientReady', async () => {
   }
   if (voiceResynced > 0) {
     console.log(`[Bot] ✅ Re-sync vocal : ${voiceResynced} membre(s) remis en tracking.`);
+  }
+
+  // ── Message de démarrage ────────────────────────────────────
+  const pool     = pg.getPool();
+  const pgStatus = pool ? '🟢 Connectée' : '🔴 Non disponible';
+
+  for (const guild of client.guilds.cache.values()) {
+    // 1. Chercher le salon logs configuré
+    let targetChannel = null;
+    const logsId = cfg.getLogsChannelId(guild.id);
+    if (logsId) {
+      targetChannel = guild.channels.cache.get(logsId)
+        || await guild.channels.fetch(logsId).catch(() => null);
+    }
+
+    // 2. Fallback : salon système du serveur
+    if (!targetChannel && guild.systemChannel) {
+      targetChannel = guild.systemChannel;
+    }
+
+    // 3. Fallback : premier salon texte où le bot peut écrire
+    if (!targetChannel) {
+      targetChannel = guild.channels.cache
+        .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('SendMessages'))
+        .sort((a, b) => a.position - b.position)
+        .first();
+    }
+
+    if (!targetChannel) continue;
+
+    try {
+      const confKeys  = cfg.getCachedKeyCount(guild.id);
+      const onlineNow = db.getOnlineUsers().length;
+
+      const embed = new EmbedBuilder()
+        .setColor(pool ? COLORS.success : COLORS.error)
+        .setTitle('🤖 Bot redémarré')
+        .addFields(
+          { name: '🗄️ Base de données', value: pgStatus,                              inline: true },
+          { name: '⚙️ Config',           value: `**${confKeys}** clé(s)`,              inline: true },
+          { name: '🟢 Connectés',        value: `**${onlineNow}**`,                    inline: true },
+          { name: '🎙️ Re-sync vocal',   value: `**${voiceResynced}** membre(s)`,       inline: true },
+          { name: '📅 Heure',            value: `<t:${Math.floor(Date.now()/1000)}:F>`,inline: true },
+          { name: '\u200B',              value: '\u200B',                               inline: true },
+        )
+        .setTimestamp()
+        .setFooter({ text: `${botName} • Démarrage` });
+
+      if (!pool) {
+        embed.setDescription('⚠️ **DATABASE_URL introuvable ou PostgreSQL inaccessible.**\nLa configuration et les connexions ne seront **pas sauvegardées** entre les redémarrages.\nVérifiez la variable `DATABASE_URL` dans les paramètres Railway.');
+      } else if (!logsId) {
+        embed.setDescription(`ℹ️ Aucun salon logs configuré. Utilise \`${process.env.PREFIX || '!'}setup logs #salon\` pour fixer ça.`);
+      }
+
+      await targetChannel.send({ embeds: [embed] });
+    } catch {}
   }
 
   // ── Checker d'absences terminées (toutes les 60s) ──────────
@@ -211,6 +236,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       else if (left)        await member.roles.remove(activeRoleId).catch(() => {});
     } catch {}
   }
+});
+
+// ── Nettoyage auto quand un membre quitte ─────────────────────
+client.on('guildMemberRemove', (member) => {
+  if (member.user.bot) return;
+  db.deleteUser(member.user.id);
+  console.log(`[Bot] 🗑️ Données supprimées pour ${member.user.username} (quitte le serveur).`);
 });
 
 client.on('error', (err) => console.error('[Client] Erreur :', err));

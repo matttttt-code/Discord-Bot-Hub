@@ -65,6 +65,10 @@ async function createTables() {
       id BIGINT PRIMARY KEY, discord_id TEXT, username TEXT, guild_id TEXT,
       issued_by TEXT, reason TEXT, created_at BIGINT
     )`,
+    `CREATE TABLE IF NOT EXISTS op_badges (
+      id SERIAL PRIMARY KEY, discord_id TEXT, badge_name TEXT, obtained_at BIGINT,
+      UNIQUE(discord_id, badge_name)
+    )`,
   ];
   for (const sql of sqls) await pg.query(sql);
 }
@@ -310,6 +314,18 @@ module.exports = {
     const exists = db.get('badges').find({ discord_id: discordId, badge_name: badgeName }).value();
     if (exists) return false;
     db.get('badges').push({ id: nextId('badges'), discord_id: discordId, badge_name: badgeName, obtained_at: now() }).write();
+    pgWrite(
+      `INSERT INTO op_badges (discord_id, badge_name, obtained_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
+      [discordId, badgeName, now()]
+    );
+    return true;
+  },
+
+  removeBadge(discordId, badgeName) {
+    const exists = db.get('badges').find({ discord_id: discordId, badge_name: badgeName }).value();
+    if (!exists) return false;
+    db.get('badges').remove({ discord_id: discordId, badge_name: badgeName }).write();
+    pgWrite(`DELETE FROM op_badges WHERE discord_id=$1 AND badge_name=$2`, [discordId, badgeName]);
     return true;
   },
 

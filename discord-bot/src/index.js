@@ -276,6 +276,57 @@ client.once('clientReady', async () => {
 
   setInterval(checkSanctionAuto, 3_600_000);
   checkSanctionAuto();
+
+  // ── Checker co longue durée (toutes les 5 min) ──────────────
+  const MAX_VOICE_SECONDS = 6 * 3600; // 6 heures
+  async function checkLongVoice() {
+    try {
+      const longSessions = db.getVoiceActiveLong(MAX_VOICE_SECONDS);
+      for (const v of longSessions) {
+        try {
+          const guild  = client.guilds.cache.get(v.guild_id);
+          if (!guild) continue;
+          const member = await guild.members.fetch(v.discord_id).catch(() => null);
+          if (!member) { db.voiceLeave(v.discord_id); continue; }
+
+          // Déconnecter du vocal
+          await member.voice.disconnect().catch(() => {});
+
+          // Clôturer la session vocale en DB
+          db.voiceLeave(v.discord_id);
+
+          const durSec  = Math.floor(Date.now() / 1000) - v.join_time;
+          const heures  = Math.floor(durSec / 3600);
+          const minutes = Math.floor((durSec % 3600) / 60);
+
+          const warnEmbed = new EmbedBuilder()
+            .setColor(0xE74C3C)
+            .setTitle('⚠️ | Déconnexion automatique')
+            .setDescription(
+              `Tu as été **déconnecté(e) automatiquement** du salon vocal après **${heures}h${String(minutes).padStart(2,'0')}** de connexion continue.\n\n` +
+              `> La durée maximale de connexion sans interruption est de **6 heures**.\n> Prends une pause et reconnecte-toi quand tu es prêt(e) !`
+            )
+            .addFields(
+              { name: '🔊 Salon', value: `<#${v.channel_id}>`, inline: true },
+              { name: '⏱️ Durée', value: `${heures}h${String(minutes).padStart(2,'0')}`, inline: true },
+            )
+            .setTimestamp()
+            .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Limite 6h` });
+
+          try { await member.user.send({ embeds: [warnEmbed] }); } catch {}
+
+          console.log(`[LongVoice] ${v.username} déconnecté après ${heures}h${minutes}m (salon <#${v.channel_id}>)`);
+        } catch (e) {
+          console.error('[LongVoice] Erreur membre', v.discord_id, e.message);
+        }
+      }
+    } catch (e) {
+      console.error('[LongVoice] Erreur checker :', e.message);
+    }
+  }
+
+  setInterval(checkLongVoice, 5 * 60_000);
+  checkLongVoice();
 });
 
 // ── Messages ──────────────────────────────────────────────────────

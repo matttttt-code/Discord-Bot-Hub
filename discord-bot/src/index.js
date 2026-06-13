@@ -349,13 +349,21 @@ client.on('interactionCreate', async (interaction) => {
         .setCustomId('absence_modal')
         .setTitle('🌙 Déclarer une absence');
 
-      const durationInput = new TextInputBuilder()
-        .setCustomId('absence_duration')
-        .setLabel('Durée (ex: 3j, 2h, 1j6h30m)')
+      const startInput = new TextInputBuilder()
+        .setCustomId('absence_start')
+        .setLabel('Date de début (JJ/MM/AAAA HH:MM)')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('3j / 2h / 1j6h')
+        .setPlaceholder('ex: 14/06/2026 09:00')
         .setRequired(true)
-        .setMaxLength(20);
+        .setMaxLength(16);
+
+      const endInput = new TextInputBuilder()
+        .setCustomId('absence_end')
+        .setLabel('Date de fin (JJ/MM/AAAA HH:MM)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('ex: 20/06/2026 18:00')
+        .setRequired(true)
+        .setMaxLength(16);
 
       const reasonInput = new TextInputBuilder()
         .setCustomId('absence_reason')
@@ -366,7 +374,8 @@ client.on('interactionCreate', async (interaction) => {
         .setMaxLength(300);
 
       modal.addComponents(
-        new ActionRowBuilder().addComponents(durationInput),
+        new ActionRowBuilder().addComponents(startInput),
+        new ActionRowBuilder().addComponents(endInput),
         new ActionRowBuilder().addComponents(reasonInput),
       );
 
@@ -383,22 +392,47 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.reply({ content: '⚠️ Tu as déjà une absence active.', ephemeral: true });
       }
 
-      const durationStr = interaction.fields.getTextInputValue('absence_duration');
-      const reason      = interaction.fields.getTextInputValue('absence_reason').trim() || 'Non précisé';
+      const startStr = interaction.fields.getTextInputValue('absence_start').trim();
+      const endStr   = interaction.fields.getTextInputValue('absence_end').trim();
+      const reason   = interaction.fields.getTextInputValue('absence_reason').trim() || 'Non précisé';
 
-      const durSec = parseDuration(durationStr);
-      if (!durSec) {
+      // Parseur de date JJ/MM/AAAA HH:MM (heure optionnelle, défaut 00:00)
+      const parseAbsDate = (str) => {
+        const m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/);
+        if (!m) return null;
+        const [, dd, mm, yyyy, hh = '00', mi = '00'] = m;
+        const ts = new Date(+yyyy, +mm - 1, +dd, +hh, +mi, 0).getTime();
+        if (isNaN(ts)) return null;
+        return Math.floor(ts / 1000);
+      };
+
+      const startTime = parseAbsDate(startStr);
+      const endTime   = parseAbsDate(endStr);
+
+      if (!startTime) {
         return interaction.reply({
-          content: '❌ Durée invalide. Exemples valides : `3j`, `2h`, `1j6h30m`.',
+          content: '❌ Date de début invalide. Format attendu : `JJ/MM/AAAA HH:MM` (ex: `14/06/2026 09:00`)',
+          ephemeral: true,
+        });
+      }
+      if (!endTime) {
+        return interaction.reply({
+          content: '❌ Date de fin invalide. Format attendu : `JJ/MM/AAAA HH:MM` (ex: `20/06/2026 18:00`)',
+          ephemeral: true,
+        });
+      }
+      if (endTime <= startTime) {
+        return interaction.reply({
+          content: '❌ La date de fin doit être **après** la date de début.',
           ephemeral: true,
         });
       }
 
-      const nowTs   = Math.floor(Date.now() / 1000);
-      const endTime = nowTs + durSec;
+      const nowTs  = Math.floor(Date.now() / 1000);
+      const durSec = endTime - startTime;
 
       db.createUser(id, username);
-      db.addAbsence(id, username, guildId, reason, nowTs, endTime);
+      db.addAbsence(id, username, guildId, reason, startTime, endTime);
 
       await updateAbsenceBoard(client, interaction.guild);
 
@@ -408,9 +442,9 @@ client.on('interactionCreate', async (interaction) => {
         .setTitle('🌙 | Absence enregistrée')
         .setDescription('Ton absence a bien été enregistrée. Tu seras notifié(e) automatiquement à la fin.')
         .addFields(
-          { name: '📅 Début',      value: fmtDate(nowTs),                          inline: true },
-          { name: '📅 Fin prévue', value: `${fmtDate(endTime)} (<t:${endTime}:R>)`, inline: true },
-          { name: '⏱️ Durée',      value: durLabel(durSec),                        inline: true },
+          { name: '📅 Début',      value: `${fmtDate(startTime)} (<t:${startTime}:F>)`, inline: false },
+          { name: '📅 Fin prévue', value: `${fmtDate(endTime)} (<t:${endTime}:R>)`,   inline: false },
+          { name: '⏱️ Durée',      value: durLabel(durSec),                           inline: true  },
           { name: '📋 Motif',      value: reason,                                   inline: false },
         )
         .setTimestamp()

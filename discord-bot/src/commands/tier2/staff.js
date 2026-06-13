@@ -4,8 +4,9 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { COLORS, error } = require('../../utils/embeds');
 const { hasTier2 } = require('../../utils/helpers');
 
-const PER_PAGE = 8;
-const BOT = () => process.env.BOT_NAME || 'CONNEXION BOT';
+const PER_PAGE    = 8;
+const TIMEOUT_MS  = 15 * 60 * 1000; // 15 minutes
+const BOT         = () => process.env.BOT_NAME || 'CONNEXION BOT';
 
 function getTierInfo(member, guildId) {
   if (!member) return { label: '👤 Membre', level: 1 };
@@ -28,10 +29,10 @@ function getHighestRole(member) {
 }
 
 function getStatus(dbUser, activeAbsenceIds) {
-  if (!dbUser)                           return '⚫';
-  if (dbUser.gele)                       return '🔒';
-  if (activeAbsenceIds.has(dbUser.discord_id)) return '🌙';
-  if (dbUser.session_start !== null)     return '🟢';
+  if (!dbUser)                                      return '⚫';
+  if (dbUser.gele)                                  return '🔒';
+  if (activeAbsenceIds.has(dbUser.discord_id))      return '🌙';
+  if (dbUser.session_start !== null)                return '🟢';
   return '⚫';
 }
 
@@ -64,14 +65,14 @@ function buildPage(members, dbMap, activeAbsenceIds, guildId, page, totalPages) 
     .setTimestamp();
 }
 
-function buildRow(authorId, page, totalPages) {
+function buildRow(authorId, page, totalPages, disabled = false) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`staff_prev_${authorId}_${page}`)
       .setEmoji('◀️')
       .setLabel('Précédent')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(page === 0),
+      .setDisabled(disabled || page === 0),
     new ButtonBuilder()
       .setCustomId(`staff_page_${authorId}_${page}`)
       .setLabel(`${page + 1} / ${totalPages}`)
@@ -82,30 +83,25 @@ function buildRow(authorId, page, totalPages) {
       .setEmoji('▶️')
       .setLabel('Suivant')
       .setStyle(ButtonStyle.Primary)
-      .setDisabled(page >= totalPages - 1),
+      .setDisabled(disabled || page >= totalPages - 1),
   );
 }
 
 async function buildStaffData(guild) {
-  const guildId = guild.id;
   await guild.members.fetch().catch(() => {});
 
-  // Tous les membres Discord triés par position de rôle le plus haut (hiérarchie Discord)
   const allMembers = guild.members.cache
     .filter(m => !m.user.bot)
     .sort((a, b) => {
-      const topA = a.roles.cache.filter(r => r.id !== guild.id).sort((x,y) => y.position - x.position).first()?.position ?? 0;
-      const topB = b.roles.cache.filter(r => r.id !== guild.id).sort((x,y) => y.position - x.position).first()?.position ?? 0;
+      const topA = a.roles.cache.filter(r => r.id !== guild.id).sort((x, y) => y.position - x.position).first()?.position ?? 0;
+      const topB = b.roles.cache.filter(r => r.id !== guild.id).sort((x, y) => y.position - x.position).first()?.position ?? 0;
       return topB - topA;
     })
     .map(m => m);
 
-  // Map discord_id → entrée DB
-  const dbUsers  = db.getAllUsers();
-  const dbMap    = new Map(dbUsers.map(u => [u.discord_id, u]));
-
-  // Absences actives
-  const activeAbsenceIds = new Set(db.getActiveAbsences(guildId).map(a => a.discord_id));
+  const dbUsers          = db.getAllUsers();
+  const dbMap            = new Map(dbUsers.map(u => [u.discord_id, u]));
+  const activeAbsenceIds = new Set(db.getActiveAbsences(guild.id).map(a => a.discord_id));
 
   return { members: allMembers, dbMap, activeAbsenceIds };
 }
@@ -115,6 +111,7 @@ module.exports = {
   tier: 2,
   description: 'Liste paginée de tous les membres du serveur triée par hiérarchie',
   usage: '!staff',
+
   async execute(message) {
     if (!hasTier2(message.member)) {
       return message.reply({ embeds: [error('Permission refusée', 'Cette commande nécessite le rôle **Admin** ou supérieur.')] });
@@ -124,15 +121,58 @@ module.exports = {
     const { members, dbMap, activeAbsenceIds } = await buildStaffData(message.guild);
 
     const totalPages = Math.max(1, Math.ceil(members.length / PER_PAGE));
-    const embed = buildPage(members, dbMap, activeAbsenceIds, guildId, 0, totalPages);
-    const row   = buildRow(message.author.id, 0, totalPages);
+    let   curPage    = 0;
 
-    await message.reply({
-      embeds: [embed],
+    const embed = buildPage(members, dbMap, activeAbsenceIds, guildId, curPage, totalPages);
+    const row   = buildRow(message.author.id, curPage, totalPages);
+
+    const reply = await message.reply({
+      embeds:     [embed],
       components: totalPages > 1 ? [row] : [],
+    });
+
+    if (totalPages <= 1) return;
+
+    // ── Collecteur de boutons — expire après 15 minutes ──────────
+    const collector = reply.createMessageComponentCollector({
+      filter: i => i.customId.startsWith('staff_') && i.user.id === message.author.id,
+      time:   TIMEOUT_MS,
+    });
+
+    collector.on('collect', async interaction => {
+      try {
+        const dir     = interaction.customId.startsWith('staff_prev_') ? 'prev' : 'next';
+        const newPage = dir === 'next' ? curPage + 1 : curPage - 1;
+
+        if (newPage < 0 || newPage >= totalPages) {
+          return interaction.reply({ content: '❌ Page invalide.', ephemeral: true });
+        }
+
+        curPage = newPage;
+
+        // Rafraîchir les données à chaque changement de page
+        const fresh = await buildStaffData(interaction.guild);
+        const newEmbed = buildPage(fresh.members, fresh.dbMap, fresh.activeAbsenceIds, guildId, curPage, totalPages);
+        const newRow   = buildRow(message.author.id, curPage, totalPages);
+
+        await interaction.update({ embeds: [newEmbed], components: [newRow] });
+      } catch (e) {
+        console.error('[Staff] Erreur collecteur :', e.message);
+      }
+    });
+
+    // ── Expiration : désactiver les boutons ──────────────────────
+    collector.on('end', async () => {
+      try {
+        const expiredRow = buildRow(message.author.id, curPage, totalPages, true);
+        const expiredEmbed = buildPage(members, dbMap, activeAbsenceIds, guildId, curPage, totalPages)
+          .setFooter({ text: `${BOT()} • Interaction expirée (15 min)  ·  ${members.length} membres` });
+        await reply.edit({ embeds: [expiredEmbed], components: [expiredRow] });
+      } catch {}
     });
   },
 
+  // Exports pour compatibilité (plus utilisés par index.js mais conservés)
   buildPage,
   buildRow,
   buildStaffData,

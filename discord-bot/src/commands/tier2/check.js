@@ -44,7 +44,6 @@ module.exports = {
     const { id, username } = member.user;
     db.createUser(id, username);
     const user     = db.getUser(id);
-    const badges   = db.getUserBadges(id);
     const warnings = db.getWarnings(id, message.guild.id);
     const sessions = db.getSessionHistory(id, 5);
 
@@ -93,15 +92,6 @@ module.exports = {
         return `\`${i + 1}.\` **${fmtDt(s.start_time)}** → ${end}${length ? ` · \`${dur(length)}\`` : ''}`;
       });
       embed.addFields({ name: `📋 Dernières sessions (${sessions.length})`, value: sessionLines.join('\n'), inline: false });
-    }
-
-    // ── Badges ────────────────────────────────────────────────
-    if (badges.length > 0) {
-      embed.addFields({
-        name: `🎖️ Badges (${badges.length})`,
-        value: badges.map(b => `• ${b.badge_name}`).join('\n'),
-        inline: false,
-      });
     }
 
     // ── Rôles ─────────────────────────────────────────────────

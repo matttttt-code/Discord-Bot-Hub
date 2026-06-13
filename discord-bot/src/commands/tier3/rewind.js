@@ -45,10 +45,11 @@ module.exports = {
 
     if (args.length < 2) {
       return message.reply({ embeds: [error('Arguments manquants',
-        'Utilisation : `!rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM]`\nExemple : `!rewind 01/06-08:00 01/06-18:00`\n\nLe bot scanne le salon connexion configuré et ajoute automatiquement les co à chaque membre.'
+        'Utilisation : `!rewind [JJ/MM-HH:MM] [JJ/MM-HH:MM] [--force]`\nExemple : `!rewind 01/06-08:00 01/06-18:00`\n\nAjoute `--force` pour compter **toutes** les co, même celles déjà enregistrées (utile après un `!reset`).'
       )] });
     }
 
+    const force   = args.includes('--force');
     const startTs = parseDate(args[0]);
     const endTs   = parseDate(args[1]);
 
@@ -70,7 +71,7 @@ module.exports = {
       return message.reply({ embeds: [error('Salon introuvable', 'Configure le salon connexion avec `!setup connexion #salon`.')] });
     }
 
-    const loading = await message.reply({ content: `⏳ Scan de <#${targetChannel.id}> en cours…` });
+    const loading = await message.reply({ content: `⏳ Scan de <#${targetChannel.id}> en cours${force ? ' **(mode --force : toutes les co comptées)**' : ''}…` });
 
     let msgs;
     try {
@@ -102,15 +103,16 @@ module.exports = {
       if (!userSessions[uid]) userSessions[uid] = { username: uname, sessions: [], openStart: null, skipped: 0 };
       const u = userSessions[uid];
 
-      // Si le bot a déjà répondu à ce message → déjà enregistré, on skip
-      if (botRepliedTo.has(msg.id)) {
+      // Si le bot a déjà répondu à ce message → déjà enregistré
+      // En mode --force (ex: après un !reset), on les compte quand même
+      if (botRepliedTo.has(msg.id) && !force) {
         u.skipped++;
         // On doit quand même fermer/ouvrir la session logiquement pour ne pas décaler les paires
         if (content === `${prefix}c`) {
-          if (u.openStart !== null) u.openStart = null; // annule l'ouverture précédente non traitée
-          u.openStart = null; // déjà traité → on ne l'ouvre pas
+          if (u.openStart !== null) u.openStart = null;
+          u.openStart = null;
         } else if (content === `${prefix}d`) {
-          u.openStart = null; // ferme proprement
+          u.openStart = null;
         }
         continue;
       }

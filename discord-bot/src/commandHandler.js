@@ -87,9 +87,15 @@ async function handleCommand(message) {
     }
   }
 
+  // Commandes dont le message original NE se supprime PAS automatiquement
+  const NO_AUTO_DELETE = ['c', 'd', 'co', 'deco', 'add', 'remove', 'online', 'view', 'me'];
+
   try {
     await command.execute(message, args);
     logCommand(message, commandName, command);
+    if (!NO_AUTO_DELETE.includes(commandName)) {
+      setTimeout(() => message.delete().catch(() => {}), 5000);
+    }
   } catch (err) {
     console.error(`[CommandHandler] Erreur dans !${commandName}:`, err);
     const { error } = require('./utils/embeds');

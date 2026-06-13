@@ -4,7 +4,7 @@ const pg   = require('./db/pg');
 
 const db = low(new Mem());
 db.defaults({
-  users: [], sessions: [], badges: [], suggestions: [],
+  users: [], sessions: [], suggestions: [],
   support_tickets: [], message_stats: [], message_log: [],
   voice_active: [], voice_stats: [], voice_sessions: [],
   warnings: [], absences: [],
@@ -64,10 +64,6 @@ async function createTables() {
     `CREATE TABLE IF NOT EXISTS op_warnings (
       id BIGINT PRIMARY KEY, discord_id TEXT, username TEXT, guild_id TEXT,
       issued_by TEXT, reason TEXT, created_at BIGINT
-    )`,
-    `CREATE TABLE IF NOT EXISTS op_badges (
-      id SERIAL PRIMARY KEY, discord_id TEXT, badge_name TEXT, obtained_at BIGINT,
-      UNIQUE(discord_id, badge_name)
     )`,
   ];
   for (const sql of sqls) await pg.query(sql);
@@ -284,7 +280,7 @@ module.exports = {
   },
 
   deleteUser(discordId) {
-    ['badges','sessions','message_stats','message_log','voice_stats','voice_sessions'].forEach(t => {
+    ['sessions','message_stats','message_log','voice_stats','voice_sessions'].forEach(t => {
       db.get(t).remove({ discord_id: discordId }).write();
     });
     db.get('voice_active').remove({ discord_id: discordId }).write();
@@ -296,37 +292,12 @@ module.exports = {
 
   resetAll() {
     db.get('users').each(u => { u.total_connexions = 0; u.session_start = null; }).write();
-    ['sessions','badges','message_stats','message_log','voice_stats','voice_sessions','voice_active']
+    ['sessions','message_stats','message_log','voice_stats','voice_sessions','voice_active']
       .forEach(t => db.set(t, []).write());
     _nextId = {};
     ['op_sessions','op_message_stats','op_message_log','op_voice_stats','op_voice_sessions','op_voice_active']
       .forEach(t => pgWrite(`DELETE FROM ${t}`));
     pgWrite(`UPDATE op_users SET total_connexions=0, session_start=NULL, added_connexions=0, removed_connexions=0`);
-  },
-
-  /* ======================== BADGES ======================== */
-
-  getUserBadges(discordId) {
-    return db.get('badges').filter({ discord_id: discordId }).sortBy(b => -b.obtained_at).value();
-  },
-
-  addBadge(discordId, badgeName) {
-    const exists = db.get('badges').find({ discord_id: discordId, badge_name: badgeName }).value();
-    if (exists) return false;
-    db.get('badges').push({ id: nextId('badges'), discord_id: discordId, badge_name: badgeName, obtained_at: now() }).write();
-    pgWrite(
-      `INSERT INTO op_badges (discord_id, badge_name, obtained_at) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
-      [discordId, badgeName, now()]
-    );
-    return true;
-  },
-
-  removeBadge(discordId, badgeName) {
-    const exists = db.get('badges').find({ discord_id: discordId, badge_name: badgeName }).value();
-    if (!exists) return false;
-    db.get('badges').remove({ discord_id: discordId, badge_name: badgeName }).write();
-    pgWrite(`DELETE FROM op_badges WHERE discord_id=$1 AND badge_name=$2`, [discordId, badgeName]);
-    return true;
   },
 
   /* ======================== SUGGESTIONS & SUPPORT ======================== */

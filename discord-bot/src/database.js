@@ -71,6 +71,8 @@ async function createTables() {
     )`,
   ];
   for (const sql of sqls) await pg.query(sql);
+  await pg.query(`ALTER TABLE op_users ADD COLUMN IF NOT EXISTS gele BOOLEAN DEFAULT FALSE`);
+  await pg.query(`ALTER TABLE op_users ADD COLUMN IF NOT EXISTS last_sanctioned_at BIGINT`);
 }
 
 // ── Load all PG data into memory ─────────────────────────────────
@@ -155,11 +157,11 @@ module.exports = {
 
   createUser(discordId, username) {
     if (this.getUser(discordId)) return;
-    const u = { discord_id: discordId, username, total_connexions: 0, session_start: null, created_at: now() };
+    const u = { discord_id: discordId, username, total_connexions: 0, session_start: null, gele: false, last_sanctioned_at: null, created_at: now() };
     db.get('users').push(u).write();
     pgWrite(
-      `INSERT INTO op_users (discord_id, username, total_connexions, session_start, created_at)
-       VALUES ($1,$2,0,NULL,$3) ON CONFLICT (discord_id) DO NOTHING`,
+      `INSERT INTO op_users (discord_id, username, total_connexions, session_start, gele, created_at)
+       VALUES ($1,$2,0,NULL,FALSE,$3) ON CONFLICT (discord_id) DO NOTHING`,
       [discordId, username, u.created_at]
     );
   },
@@ -617,5 +619,43 @@ module.exports = {
 
   getAllConfig(guildId = 'global') {
     return db.get('guild_config').filter({ guild_id: guildId }).value();
+  },
+
+  /* ======================== GEL ======================== */
+
+  gelUser(discordId) {
+    db.get('users').find({ discord_id: discordId }).assign({ gele: true }).write();
+    pgWrite(`UPDATE op_users SET gele=TRUE WHERE discord_id=$1`, [discordId]);
+  },
+
+  degelUser(discordId) {
+    db.get('users').find({ discord_id: discordId }).assign({ gele: false }).write();
+    pgWrite(`UPDATE op_users SET gele=FALSE WHERE discord_id=$1`, [discordId]);
+  },
+
+  isGele(discordId) {
+    const u = this.getUser(discordId);
+    return u ? (u.gele === true) : false;
+  },
+
+  /* ======================== SANCTION AUTO ======================== */
+
+  markSanctioned(discordId) {
+    const t = now();
+    db.get('users').find({ discord_id: discordId }).assign({ last_sanctioned_at: t }).write();
+    pgWrite(`UPDATE op_users SET last_sanctioned_at=$1 WHERE discord_id=$2`, [t, discordId]);
+  },
+
+  getInactiveForSanction(days) {
+    const threshold  = now() - days * 86400;
+    const cooldown   = now() - 86400;
+    const users      = db.get('users').filter(u => !u.gele && u.total_connexions > 0).value();
+    return users.filter(u => {
+      if (u.last_sanctioned_at && u.last_sanctioned_at > cooldown) return false;
+      const lastSession = db.get('sessions')
+        .filter(s => s.discord_id === u.discord_id && s.end_time !== null)
+        .sortBy(s => -s.end_time).first().value();
+      return lastSession && lastSession.end_time < threshold;
+    });
   },
 };

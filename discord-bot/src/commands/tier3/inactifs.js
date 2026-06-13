@@ -1,8 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
 const { COLORS, error } = require('../../utils/embeds');
 const { hasTier3 } = require('../../utils/helpers');
+const { paginate } = require('../../utils/paginate');
 const db  = require('../../database');
 const cfg = require('../../utils/config');
+
+const PER_PAGE = 15;
+const BOT = () => process.env.BOT_NAME || 'CONNEXION BOT';
 
 function parseSeuil(arg) {
   if (!arg) return null;
@@ -50,9 +54,13 @@ module.exports = {
     const enregistreeRoleId = cfg.getEnregistreeRoleId(guildId);
     let membersToCheck = [];
 
+    // Toujours fetch pour avoir le cache complet
+    try {
+      await message.guild.members.fetch();
+    } catch {}
+
     if (enregistreeRoleId) {
       try {
-        await message.guild.members.fetch();
         const role = message.guild.roles.cache.get(enregistreeRoleId);
         if (role) {
           membersToCheck = role.members.map(m => ({ id: m.id, tag: m.user.username, display: m.displayName }));
@@ -61,9 +69,9 @@ module.exports = {
     }
 
     if (membersToCheck.length === 0) {
-      // Fallback DB : on filtre aux membres encore présents sur le serveur
-      const allUsers = db.getFullRapport(guildId, null, null);
-      const currentIds = new Set(message.guild.members.cache.map((m, id) => id));
+      // Fallback DB : seulement les membres encore présents sur le serveur
+      const allUsers   = db.getFullRapport(guildId, null, null);
+      const currentIds = new Set(message.guild.members.cache.keys());
       membersToCheck = allUsers
         .filter(u => currentIds.has(u.discord_id))
         .map(u => ({ id: u.discord_id, tag: u.username, display: u.username }));
@@ -71,22 +79,40 @@ module.exports = {
 
     const inactifs = membersToCheck.filter(m => !activeIds.has(m.id));
 
-    const embed = new EmbedBuilder()
-      .setColor(inactifs.length === 0 ? COLORS.success : COLORS.warning)
-      .setTitle(`😴 | Membres inactifs — ${periodLabel}`)
-      .setTimestamp()
-      .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Inactifs` });
-
     if (inactifs.length === 0) {
-      embed.setDescription(`✅ Aucun membre inactif sur la période **${periodLabel}**. Tout le monde a été actif !`);
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [
+        new EmbedBuilder()
+          .setColor(COLORS.success)
+          .setTitle(`😴 | Membres inactifs — ${periodLabel}`)
+          .setDescription(`✅ Aucun membre inactif sur la période **${periodLabel}**. Tout le monde a été actif !`)
+          .setTimestamp()
+          .setFooter({ text: `${BOT()} • Inactifs` })
+      ]});
     }
 
-    const lines = inactifs.slice(0, 40).map((m, i) => `**${i + 1}.** <@${m.id}>`);
-    const extra = inactifs.length > 40 ? `\n*… et ${inactifs.length - 40} autre(s)*` : '';
+    const totalPages = Math.ceil(inactifs.length / PER_PAGE);
 
-    embed.setDescription(`**${inactifs.length}** membre${inactifs.length > 1 ? 's' : ''} sans activité depuis **${periodLabel}** :\n\n${lines.join('\n')}${extra}`);
+    const pages = Array.from({ length: totalPages }, (_, pageIdx) => {
+      const slice = inactifs.slice(pageIdx * PER_PAGE, (pageIdx + 1) * PER_PAGE);
+      const lines = slice.map((m, i) => {
+        const rank = pageIdx * PER_PAGE + i;
+        return `**${rank + 1}.** <@${m.id}>`;
+      });
 
-    await message.reply({ embeds: [embed] });
+      const embed = new EmbedBuilder()
+        .setColor(COLORS.warning)
+        .setTitle(`😴 | Membres inactifs — ${periodLabel}`)
+        .setTimestamp()
+        .setFooter({ text: `${BOT()} • Inactifs • Page ${pageIdx + 1}/${totalPages}` });
+
+      const header = pageIdx === 0
+        ? `**${inactifs.length}** membre${inactifs.length > 1 ? 's' : ''} sans activité depuis **${periodLabel}** :\n\n`
+        : '';
+
+      embed.setDescription(header + lines.join('\n'));
+      return embed;
+    });
+
+    return paginate(message, pages);
   }
 };

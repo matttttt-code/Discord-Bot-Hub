@@ -2,6 +2,7 @@ const db = require('../../database');
 const { EmbedBuilder } = require('discord.js');
 const { success, error, formatRelative, COLORS } = require('../../utils/embeds');
 const { hasTier3, resolveUser } = require('../../utils/helpers');
+const { paginate } = require('../../utils/paginate');
 
 module.exports = {
   name: 'avert',
@@ -34,18 +35,28 @@ module.exports = {
             .setTimestamp()
         ]});
       }
-      const lines = warns.map((w, i) =>
-        `**${i + 1}.** ${formatRelative(w.created_at)} — par <@${w.issued_by}>\n> ${w.reason || '*Aucune raison*'}`
-      ).join('\n');
-      return message.reply({ embeds: [
-        new EmbedBuilder()
+
+      const PER_PAGE  = 8;
+      const BOT       = process.env.BOT_NAME || 'CONNEXION BOT';
+      const totalPages = Math.ceil(warns.length / PER_PAGE);
+
+      const pages = Array.from({ length: totalPages }, (_, pageIdx) => {
+        const slice = warns.slice(pageIdx * PER_PAGE, (pageIdx + 1) * PER_PAGE);
+        const lines = slice.map((w, i) => {
+          const rank = pageIdx * PER_PAGE + i;
+          return `**${rank + 1}.** ${formatRelative(w.created_at)} — par <@${w.issued_by}>\n> ${w.reason || '*Aucune raison*'}`;
+        }).join('\n');
+
+        return new EmbedBuilder()
           .setColor(COLORS.warning)
           .setTitle(`⚠️ Avertissements de ${username} (${warns.length})`)
           .setDescription(lines)
           .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
           .setTimestamp()
-          .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Avertissements` })
-      ]});
+          .setFooter({ text: `${BOT} • Avertissements • Page ${pageIdx + 1}/${totalPages}` });
+      });
+
+      return paginate(message, pages);
     }
 
     const reason = subArgs.join(' ') || 'Oubli de déconnexion';

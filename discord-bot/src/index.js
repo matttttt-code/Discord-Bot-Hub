@@ -287,13 +287,13 @@ client.once('clientReady', async () => {
           const guild  = client.guilds.cache.get(v.guild_id);
           if (!guild) continue;
           const member = await guild.members.fetch(v.discord_id).catch(() => null);
-          if (!member) { db.voiceLeave(v.discord_id); continue; }
 
-          // Déconnecter du vocal
-          await member.voice.disconnect().catch(() => {});
+          // Vérifier que la personne a une session !c active
+          if (!db.hasActiveSession(v.discord_id)) continue;
 
-          // Clôturer la session vocale en DB
-          db.voiceLeave(v.discord_id);
+          // Clôturer uniquement la session connexion (!c) — le membre reste dans le vocal
+          const sessionResult = db.endSession(v.discord_id);
+          if (!sessionResult) continue;
 
           const durSec  = Math.floor(Date.now() / 1000) - v.join_time;
           const heures  = Math.floor(durSec / 3600);
@@ -301,21 +301,21 @@ client.once('clientReady', async () => {
 
           const warnEmbed = new EmbedBuilder()
             .setColor(0xE74C3C)
-            .setTitle('⚠️ | Déconnexion automatique')
+            .setTitle('⚠️ | Connexion retirée automatiquement')
             .setDescription(
-              `Tu as été **déconnecté(e) automatiquement** du salon vocal après **${heures}h${String(minutes).padStart(2,'0')}** de connexion continue.\n\n` +
-              `> La durée maximale de connexion sans interruption est de **6 heures**.\n> Prends une pause et reconnecte-toi quand tu es prêt(e) !`
+              `Ta connexion a été **retirée automatiquement** après **${heures}h${String(minutes).padStart(2,'0')}** de connexion continue.\n\n` +
+              `> La durée maximale de connexion sans interruption est de **6 heures**.\n> Tu restes dans le salon vocal, mais tu devras refaire un \`!c\` pour relancer une connexion.`
             )
             .addFields(
               { name: '🔊 Salon', value: `<#${v.channel_id}>`, inline: true },
-              { name: '⏱️ Durée', value: `${heures}h${String(minutes).padStart(2,'0')}`, inline: true },
+              { name: '⏱️ Durée enregistrée', value: `${heures}h${String(minutes).padStart(2,'0')}`, inline: true },
             )
             .setTimestamp()
             .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Limite 6h` });
 
-          try { await member.user.send({ embeds: [warnEmbed] }); } catch {}
+          if (member) try { await member.user.send({ embeds: [warnEmbed] }); } catch {}
 
-          console.log(`[LongVoice] ${v.username} déconnecté après ${heures}h${minutes}m (salon <#${v.channel_id}>)`);
+          console.log(`[LongVoice] Connexion de ${v.username} retirée après ${heures}h${minutes}m`);
         } catch (e) {
           console.error('[LongVoice] Erreur membre', v.discord_id, e.message);
         }

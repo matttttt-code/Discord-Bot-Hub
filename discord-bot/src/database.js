@@ -396,7 +396,7 @@ module.exports = {
     const duration = t - active.join_time;
     const existing = db.get('voice_stats').find({ discord_id: discordId, channel_id: active.channel_id }).value();
     if (existing) {
-      const newSecs = existing.total_seconds + duration;
+      const newSecs = Number(existing.total_seconds) + duration;
       db.get('voice_stats').find({ discord_id: discordId, channel_id: active.channel_id })
         .assign({ total_seconds: newSecs, username: active.username }).write();
       pgWrite(
@@ -427,7 +427,7 @@ module.exports = {
     const totals = {};
     stats.forEach(s => {
       if (!totals[s.discord_id]) totals[s.discord_id] = { discord_id: s.discord_id, username: s.username, total: 0 };
-      totals[s.discord_id].total += s.total_seconds;
+      totals[s.discord_id].total += Number(s.total_seconds) || 0;
     });
     const active = db.get('voice_active').filter(v => v.guild_id === guildId && (channelId ? v.channel_id === channelId : true)).value();
     active.forEach(v => {
@@ -440,7 +440,7 @@ module.exports = {
 
   getUserVocalStats(discordId, guildId) {
     const stats      = db.get('voice_stats').filter(s => s.discord_id === discordId && s.guild_id === guildId).value();
-    const total      = stats.reduce((a, s) => a + s.total_seconds, 0);
+    const total      = stats.reduce((a, s) => a + (Number(s.total_seconds) || 0), 0);
     const byChannel  = stats.map(s => ({ channel_id: s.channel_id, total_seconds: s.total_seconds })).sort((a, b) => b.total_seconds - a.total_seconds).slice(0, 10);
     const active     = db.get('voice_active').find({ discord_id: discordId }).value();
     const liveSeconds = active ? now() - active.join_time : 0;
@@ -470,7 +470,7 @@ module.exports = {
     const vocalTotals = {};
     vocalStats.forEach(s => {
       if (!vocalTotals[s.discord_id]) vocalTotals[s.discord_id] = { username: s.username, total: 0 };
-      vocalTotals[s.discord_id].total += s.total_seconds;
+      vocalTotals[s.discord_id].total += Number(s.total_seconds) || 0;
     });
     activeVoice.forEach(v => {
       const live = now() - v.join_time;

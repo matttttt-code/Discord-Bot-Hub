@@ -30,16 +30,9 @@ module.exports = {
   description: 'Rapport d\'activité complet — classement connexions, messages, vocal',
   usage: '!rapport [#salon | ID_salon] [7j/30j/Xh/JJ/MM]',
   async execute(message, args) {
-    const rapportRoleId = cfg.getRapportRoleId(message.guild.id);
-    const hasAccess = rapportRoleId
-      ? (message.member.roles.cache.has(rapportRoleId) || message.member.permissions.has(8n))
-      : hasTier2(message.member);
-    if (!hasAccess) {
+    if (!hasTier2(message.member)) {
       const { error } = require('../../utils/embeds');
-      const roleMsg = rapportRoleId
-        ? `Cette commande est réservée aux membres ayant le rôle <@&${rapportRoleId}>.`
-        : `Cette commande nécessite le rôle **Administration**.`;
-      return message.reply({ embeds: [error('Permission refusée', roleMsg)], allowedMentions: { roles: [] } });
+      return message.reply({ embeds: [error('Permission refusée', `Cette commande nécessite le rôle **Administration**.`)] });
     }
 
     let channelId      = null;   // filtre de salon pour les messages
@@ -159,6 +152,27 @@ module.exports = {
     const sourceLabel = sourceGuildId && sourceGuildId !== message.guild.id
       ? ` · msgs/vocal depuis ${channelName !== 'Serveur entier' ? channelName : `\`${sourceGuildId}\``}`
       : (channelName !== 'Serveur entier' ? ` · ${channelName}` : '');
+
+    // ── Filtrer/inclure selon le rôle rapport configuré ──────────
+    const rapportRoleId = cfg.getRapportRoleId(message.guild.id);
+    if (rapportRoleId) {
+      try {
+        await message.guild.members.fetch();
+        const role = message.guild.roles.cache.get(rapportRoleId);
+        if (role) {
+          const roleIds = new Set(role.members.map(m => m.id));
+          // Garder uniquement les membres qui ont le rôle
+          results = results.filter(u => roleIds.has(u.discord_id));
+          // Ajouter les membres du rôle sans activité enregistrée
+          const dbIds = new Set(results.map(r => r.discord_id));
+          role.members.forEach(m => {
+            if (!dbIds.has(m.id)) {
+              results.push({ discord_id: m.id, username: m.user.username, connexions: 0, messages: 0, vocal_seconds: 0 });
+            }
+          });
+        }
+      } catch {}
+    }
 
     // ── Inclure les membres avec le rôle "enregistrée" ──────────
     const enregistreeRoleId = cfg.getEnregistreeRoleId(message.guild.id);

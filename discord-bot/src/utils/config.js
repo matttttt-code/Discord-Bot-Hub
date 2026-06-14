@@ -15,6 +15,7 @@ const DEFAULTS = {
   absence_log_channel_id: '',
   rapport_start_date:     '',
   partner_guild_id:       '',
+  rapport_role_id:        '',
   co_enabled:             '1',
 };
 
@@ -75,6 +76,7 @@ function getPingRoleId(guildId)           { return get('ping_role_id', guildId) 
 function getEnregistreeRoleId(guildId)    { return get('enregistree_role_id', guildId) || null; }
 function getRapportStartDate(guildId)     { const v = get('rapport_start_date', guildId); return v ? parseInt(v) : null; }
 function getPartnerGuildId(guildId)       { return get('partner_guild_id', guildId) || null; }
+function getRapportRoleId(guildId)        { return get('rapport_role_id', guildId) || null; }
 function isCoEnabled(guildId)             { return get('co_enabled', guildId) !== '0'; }
 
 module.exports = {
@@ -84,5 +86,5 @@ module.exports = {
   getAdminChannelId, getManagerChannelId, getAbsenceLogChannelId,
   getTier2RoleId, getTier3RoleId,
   getBotManagerRoleId, getActiveRoleId, getPingRoleId,
-  getEnregistreeRoleId, getRapportStartDate, getPartnerGuildId, isCoEnabled,
+  getEnregistreeRoleId, getRapportStartDate, getPartnerGuildId, getRapportRoleId, isCoEnabled,
 };

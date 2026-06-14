@@ -30,9 +30,16 @@ module.exports = {
   description: 'Rapport d\'activité complet — classement connexions, messages, vocal',
   usage: '!rapport [#salon | ID_salon] [7j/30j/Xh/JJ/MM]',
   async execute(message, args) {
-    if (!hasTier2(message.member)) {
+    const rapportRoleId = cfg.getRapportRoleId(message.guild.id);
+    const hasAccess = rapportRoleId
+      ? (message.member.roles.cache.has(rapportRoleId) || message.member.permissions.has(8n))
+      : hasTier2(message.member);
+    if (!hasAccess) {
       const { error } = require('../../utils/embeds');
-      return message.reply({ embeds: [error('Permission refusée', `Cette commande nécessite le rôle **Administration**.`)] });
+      const roleMsg = rapportRoleId
+        ? `Cette commande est réservée aux membres ayant le rôle <@&${rapportRoleId}>.`
+        : `Cette commande nécessite le rôle **Administration**.`;
+      return message.reply({ embeds: [error('Permission refusée', roleMsg)], allowedMentions: { roles: [] } });
     }
 
     let channelId      = null;   // filtre de salon pour les messages

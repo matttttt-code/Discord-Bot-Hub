@@ -38,7 +38,7 @@ module.exports = {
         `\`${prefix}d\` — Terminer une connexion`,
         `\`${prefix}me\` — Profil complet + historique en MP (paginé)`,
         `\`${prefix}recap [7j/30j/Xh]\` — Bilan d'activité personnel sur une période`,
-        `\`${prefix}absence [durée] [motif]\` — Se déclarer absent (ex: \`!absence 3j Vacances\`)`,
+        `\`${prefix}absence\` — Se déclarer absent (ouvre un formulaire à remplir)`,
         `\`${prefix}delabsence [@membre]\` — Supprimer une absence (la sienne ou celle d'un membre)`,
         `\`${prefix}absences\` — Voir toutes les absences actives du serveur`,
         `\`${prefix}online\` — Liste des membres connectés en ce moment`,
@@ -99,7 +99,7 @@ module.exports = {
             `\`${prefix}avert @user list\` — Voir les avertissements d'un membre`,
             `\`${prefix}revive @user [message]\` — Envoyer un MP de relance`,
             `\`${prefix}support [texte]\` — Signalement à l'équipe dev`,
-            `\`${prefix}setup [param] [valeur]\` — Configurer le bot`,
+            `\`${prefix}setup [param] [valeur]\` — Configurer le bot (roles, salons, rapportrole…)`,
           ].join('\n'),
           inline: false
         }

@@ -9,6 +9,7 @@ const SETTINGS = {
   active:      { label: 'Rôle Membre Actif (vocal)',    icon: '🟢', key: 'active_role_id',         type: 'role' },
   pingrole:    { label: 'Rôle Ping Connexion',          icon: '🔔', key: 'ping_role_id',           type: 'role' },
   enregistree: { label: 'Rôle Enregistrée (rapport)',   icon: '📋', key: 'enregistree_role_id',    type: 'role' },
+  rapportrole: { label: 'Rôle accès !rapport',          icon: '📊', key: 'rapport_role_id',         type: 'role' },
   logs:        { label: 'Salon Logs',                   icon: '📋', key: 'logs_channel_id',        type: 'channel' },
   connexion:   { label: 'Salon Connexion',              icon: '🔌', key: 'connexion_channel_id',   type: 'channel' },
   admin:       { label: 'Salon Commandes Admin',        icon: '⚙️', key: 'admin_channel_id',       type: 'channel' },
@@ -185,6 +186,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
     { key: 'active_role_id',      icon: '🟢', label: 'Membre Actif (vocal)' },
     { key: 'ping_role_id',        icon: '🔔', label: 'Ping Connexion (!c/!d)' },
     { key: 'enregistree_role_id', icon: '📋', label: 'Enregistrée (rapport)' },
+    { key: 'rapport_role_id',    icon: '📊', label: 'Accès !rapport' },
   ];
   for (const r of roles) {
     const val = cfg.get(r.key, guildId);
@@ -235,6 +237,7 @@ async function sendDashboard(message, guildId, successMsg = null) {
       '`!setup active @role` — Rôle Membre Actif (vocal)',
       '`!setup pingrole @role` — Rôle pingé lors des !c / !d',
       '`!setup enregistree @role` — Rôle Enregistrée (rapport)',
+      '`!setup rapportrole @role` — Rôle autorisé à utiliser !rapport',
       '`!setup logs #salon` — Salon Logs',
       '`!setup connexion #salon` — Salon Connexion',
       '`!setup admin #salon` — Salon Commandes Admin',

@@ -524,7 +524,12 @@ client.on('interactionCreate', async (interaction) => {
               )
               .setTimestamp()
               .setFooter({ text: `${process.env.BOT_NAME || 'CONNEXION BOT'} • Absence Log` });
-            await absLogChannel.send({ content: `<@&1506758584443080735>`, embeds: [logEmbed] });
+            const absLogPingRoleId = cfg.getPingRoleId(guildId);
+            await absLogChannel.send({
+              content: absLogPingRoleId ? `<@&${absLogPingRoleId}>` : null,
+              embeds: [logEmbed],
+              allowedMentions: { roles: absLogPingRoleId ? [absLogPingRoleId] : [] },
+            });
           }
         } catch {}
       }

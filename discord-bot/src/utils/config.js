@@ -79,6 +79,37 @@ function getPartnerGuildId(guildId)       { return get('partner_guild_id', guild
 function getRapportRoleId(guildId)        { return get('rapport_role_id', guildId) || null; }
 function isCoEnabled(guildId)             { return get('co_enabled', guildId) !== '0'; }
 
+function getBlacklistedUsers(guildId) {
+  const v = get('blacklist_users', guildId);
+  try { return v ? JSON.parse(v) : []; } catch { return []; }
+}
+function getBlacklistedRoles(guildId) {
+  const v = get('blacklist_roles', guildId);
+  try { return v ? JSON.parse(v) : []; } catch { return []; }
+}
+async function addBlacklistUser(userId, guildId) {
+  const list = getBlacklistedUsers(guildId);
+  if (!list.includes(userId)) { list.push(userId); await set('blacklist_users', JSON.stringify(list), guildId); }
+}
+async function removeBlacklistUser(userId, guildId) {
+  const list = getBlacklistedUsers(guildId).filter(id => id !== userId);
+  await set('blacklist_users', JSON.stringify(list), guildId);
+}
+async function addBlacklistRole(roleId, guildId) {
+  const list = getBlacklistedRoles(guildId);
+  if (!list.includes(roleId)) { list.push(roleId); await set('blacklist_roles', JSON.stringify(list), guildId); }
+}
+async function removeBlacklistRole(roleId, guildId) {
+  const list = getBlacklistedRoles(guildId).filter(id => id !== roleId);
+  await set('blacklist_roles', JSON.stringify(list), guildId);
+}
+function isBlacklisted(member, guildId) {
+  const users = getBlacklistedUsers(guildId);
+  if (users.includes(member.id)) return true;
+  const roles = getBlacklistedRoles(guildId);
+  return member.roles.cache.some(r => roles.includes(r.id));
+}
+
 module.exports = {
   get, set, loadCache, getCachedKeyCount, invalidateCache, DEFAULTS,
   isMaintenance,
@@ -87,4 +118,8 @@ module.exports = {
   getTier2RoleId, getTier3RoleId,
   getBotManagerRoleId, getActiveRoleId, getPingRoleId,
   getEnregistreeRoleId, getRapportStartDate, getPartnerGuildId, getRapportRoleId, isCoEnabled,
+  getBlacklistedUsers, getBlacklistedRoles,
+  addBlacklistUser, removeBlacklistUser,
+  addBlacklistRole, removeBlacklistRole,
+  isBlacklisted,
 };

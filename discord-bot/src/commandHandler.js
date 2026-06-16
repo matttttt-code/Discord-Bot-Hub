@@ -53,6 +53,14 @@ async function handleCommand(message) {
     return message.reply({ embeds: [error('🔧 Maintenance', 'Le bot est en **mode maintenance**. Réessaye plus tard.')] });
   }
 
+  // ── Blacklist : membres/rôles interdits de commandes (bypass pour Admins & Tier 3) ──
+  if (!message.member.permissions.has(8n) && !hasTier3(message.member)) {
+    if (cfg.isBlacklisted(message.member, guildId)) {
+      const { error } = require('./utils/embeds');
+      return message.reply({ embeds: [error('🚫 Accès refusé', 'Tu es **blacklisté** et ne peux pas utiliser les commandes du bot sur ce serveur.')] });
+    }
+  }
+
   // ── Bypass salon : les managers (tier3) peuvent utiliser n'importe quelle commande partout ──
   const isManager = hasTier3(message.member);
 

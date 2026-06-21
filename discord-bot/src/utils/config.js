@@ -79,34 +79,37 @@ function getPartnerGuildId(guildId)       { return get('partner_guild_id', guild
 function getRapportRoleId(guildId)        { return get('rapport_role_id', guildId) || null; }
 function isCoEnabled(guildId)             { return get('co_enabled', guildId) !== '0'; }
 
-function getBlacklistedUsers(guildId) {
-  const v = get('blacklist_users', guildId);
+// ── Blacklist par tier ────────────────────────────────────────────
+// tier = 1, 2 ou 3 ; les clés PG sont blacklist_t1_users, etc.
+function getBlacklistedUsers(guildId, tier) {
+  const v = get(`blacklist_t${tier}_users`, guildId);
   try { return v ? JSON.parse(v) : []; } catch { return []; }
 }
-function getBlacklistedRoles(guildId) {
-  const v = get('blacklist_roles', guildId);
+function getBlacklistedRoles(guildId, tier) {
+  const v = get(`blacklist_t${tier}_roles`, guildId);
   try { return v ? JSON.parse(v) : []; } catch { return []; }
 }
-async function addBlacklistUser(userId, guildId) {
-  const list = getBlacklistedUsers(guildId);
-  if (!list.includes(userId)) { list.push(userId); await set('blacklist_users', JSON.stringify(list), guildId); }
+async function addBlacklistUser(userId, guildId, tier) {
+  const list = getBlacklistedUsers(guildId, tier);
+  if (!list.includes(userId)) { list.push(userId); await set(`blacklist_t${tier}_users`, JSON.stringify(list), guildId); }
 }
-async function removeBlacklistUser(userId, guildId) {
-  const list = getBlacklistedUsers(guildId).filter(id => id !== userId);
-  await set('blacklist_users', JSON.stringify(list), guildId);
+async function removeBlacklistUser(userId, guildId, tier) {
+  const list = getBlacklistedUsers(guildId, tier).filter(id => id !== userId);
+  await set(`blacklist_t${tier}_users`, JSON.stringify(list), guildId);
 }
-async function addBlacklistRole(roleId, guildId) {
-  const list = getBlacklistedRoles(guildId);
-  if (!list.includes(roleId)) { list.push(roleId); await set('blacklist_roles', JSON.stringify(list), guildId); }
+async function addBlacklistRole(roleId, guildId, tier) {
+  const list = getBlacklistedRoles(guildId, tier);
+  if (!list.includes(roleId)) { list.push(roleId); await set(`blacklist_t${tier}_roles`, JSON.stringify(list), guildId); }
 }
-async function removeBlacklistRole(roleId, guildId) {
-  const list = getBlacklistedRoles(guildId).filter(id => id !== roleId);
-  await set('blacklist_roles', JSON.stringify(list), guildId);
+async function removeBlacklistRole(roleId, guildId, tier) {
+  const list = getBlacklistedRoles(guildId, tier).filter(id => id !== roleId);
+  await set(`blacklist_t${tier}_roles`, JSON.stringify(list), guildId);
 }
-function isBlacklisted(member, guildId) {
-  const users = getBlacklistedUsers(guildId);
+// Vérifie si un membre est blacklisté pour un tier précis
+function isBlacklistedForTier(member, guildId, tier) {
+  const users = getBlacklistedUsers(guildId, tier);
   if (users.includes(member.id)) return true;
-  const roles = getBlacklistedRoles(guildId);
+  const roles = getBlacklistedRoles(guildId, tier);
   return member.roles.cache.some(r => roles.includes(r.id));
 }
 
@@ -121,5 +124,5 @@ module.exports = {
   getBlacklistedUsers, getBlacklistedRoles,
   addBlacklistUser, removeBlacklistUser,
   addBlacklistRole, removeBlacklistRole,
-  isBlacklisted,
+  isBlacklistedForTier,
 };
